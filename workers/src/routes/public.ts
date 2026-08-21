@@ -13,6 +13,7 @@ import {
   blockedSlots,
 } from '../db/schema';
 import { computeAvailability } from '../services/slot-engine';
+import { sendAppointmentConfirmationEmail } from '../services/notification';
 import type { AppContext } from '../types';
 
 export const publicRoutes = new Hono<AppContext>();
@@ -276,6 +277,20 @@ publicRoutes.post(
       priceQtz: service.priceQtz,
       durationMinutes: service.durationMinutes,
     });
+
+    // 4. Enviar email transaccional con .ics en segundo plano si hay API key
+    if (c.env?.RESEND_API_KEY && body.customerEmail) {
+      sendAppointmentConfirmationEmail({
+        apiKey: c.env.RESEND_API_KEY,
+        to: body.customerEmail,
+        customerName: customer.name,
+        companyName: company.name,
+        serviceName: service.name,
+        startAt: new Date(body.startAt),
+        endAt: new Date(endAt),
+        appointmentId: appointment.id,
+      }).catch((err) => console.error('[Notification dispatch error]', err));
+    }
 
     return c.json({
       success: true,
