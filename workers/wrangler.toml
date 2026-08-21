@@ -4,10 +4,10 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "staging"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "bookly-db"
-database_id = "local-d1-id"
+database_name = "bookly-db-staging"
+database_id = "3ac0e526-2d04-4d2f-ae83-df41512ddccb"
 migrations_dir = "src/db/migrations"

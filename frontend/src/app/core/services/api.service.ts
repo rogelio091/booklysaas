@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import type {
   PublicCompanyDto,
   PublicServiceDto,
@@ -23,20 +24,21 @@ interface ApiResponse<T> {
 })
 export class ApiService {
   private readonly http = inject(HttpClient);
+  private readonly baseUrl = environment.apiUrl;
 
   // 1. Perfil de empresa
   getCompany(slug: string): Observable<ApiResponse<PublicCompanyDto>> {
-    return this.http.get<ApiResponse<PublicCompanyDto>>(`/api/public/${slug}/company`);
+    return this.http.get<ApiResponse<PublicCompanyDto>>(`${this.baseUrl}/public/${slug}/company`);
   }
 
   // 2. Catálogo de servicios
   getServices(slug: string): Observable<ApiResponse<PublicServiceDto[]>> {
-    return this.http.get<ApiResponse<PublicServiceDto[]>>(`/api/public/${slug}/services`);
+    return this.http.get<ApiResponse<PublicServiceDto[]>>(`${this.baseUrl}/public/${slug}/services`);
   }
 
   // 3. Staff disponible
   getStaff(slug: string): Observable<ApiResponse<PublicStaffDto[]>> {
-    return this.http.get<ApiResponse<PublicStaffDto[]>>(`/api/public/${slug}/staff`);
+    return this.http.get<ApiResponse<PublicStaffDto[]>>(`${this.baseUrl}/public/${slug}/staff`);
   }
 
   // 4. Disponibilidad de slots
@@ -54,7 +56,7 @@ export class ApiService {
       params['staffId'] = String(staffId);
     }
     return this.http.get<ApiResponse<{ date: string; timezone: string; slots: SlotDto[] }>>(
-      `/api/public/${slug}/availability`,
+      `${this.baseUrl}/public/${slug}/availability`,
       { params },
     );
   }
@@ -64,6 +66,6 @@ export class ApiService {
     slug: string,
     booking: CreateBookingDto,
   ): Observable<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>> {
-    return this.http.post<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>>(`/api/public/${slug}/book`, booking);
+    return this.http.post<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>>(`${this.baseUrl}/public/${slug}/book`, booking);
   }
 }

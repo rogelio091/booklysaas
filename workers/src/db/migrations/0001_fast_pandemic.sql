@@ -1,0 +1,1 @@
+ALTER TABLE `companies` ADD `theme` text DEFAULT 'midnight-emerald' NOT NULL;
