@@ -8,6 +8,7 @@ export const publicCompanySchema = z.object({
   timezone: z.string(),
   brandColor: z.string().nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
+  theme: z.enum(['midnight-emerald', 'obsidian-luxe', 'titanium-oled']).default('midnight-emerald'),
 });
 
 export type PublicCompanyDto = z.infer<typeof publicCompanySchema>;

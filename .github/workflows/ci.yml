@@ -1,0 +1,38 @@
+name: CI — Continuous Integration
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  validate:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack & Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.22.0 --activate
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: Typecheck TypeScript
+        run: pnpm -r typecheck
+
+      - name: Run Backend Unit Tests (Vitest)
+        run: pnpm --filter bookly-api test
+
+      - name: Build Frontend Application (Angular 21)
+        run: pnpm --filter frontend build

@@ -1,5 +1,7 @@
-// Design Tokens — Bookly (Midnight Emerald Luxury System)
-:root {
+// Design Tokens — Bookly Multi-Theme System
+
+// 1. DEFAULT: MIDNIGHT EMERALD
+:root, body.theme-emerald {
   --color-bg: #06110e;
   --color-bg-gradient: radial-gradient(circle at 50% 0%, #064e3b 0%, #06110e 75%);
   --color-surface: #0a1f18;
@@ -36,4 +38,42 @@
   --shadow-glow: 0 0 25px var(--color-primary-glow);
   
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+// 2. THEME: OBSIDIAN LUXE
+body.theme-obsidian {
+  --color-bg: #090d16;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 75%);
+  --color-surface: #111827;
+  --color-surface-hover: #1e293b;
+  --color-surface-glass: rgba(17, 24, 39, 0.82);
+  
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-highlight: rgba(255, 255, 255, 0.18);
+  --color-border-focus: rgba(99, 102, 241, 0.5);
+  
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-glow: rgba(99, 102, 241, 0.35);
+  --color-primary-light: rgba(99, 102, 241, 0.14);
+  --color-accent: #38bdf8;
+}
+
+// 3. THEME: TITANIUM OLED
+body.theme-titanium {
+  --color-bg: #000000;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #27272a 0%, #000000 80%);
+  --color-surface: #0e0e11;
+  --color-surface-hover: #18181b;
+  --color-surface-glass: rgba(14, 14, 17, 0.88);
+  
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-highlight: rgba(255, 255, 255, 0.22);
+  --color-border-focus: rgba(255, 255, 255, 0.4);
+  
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-glow: rgba(59, 130, 246, 0.35);
+  --color-primary-light: rgba(59, 130, 246, 0.12);
+  --color-accent: #e2e8f0;
 }

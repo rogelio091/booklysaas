@@ -32,6 +32,7 @@ publicRoutes.get('/:slug/company', async (c) => {
       timezone: true,
       brandColor: true,
       logoUrl: true,
+      theme: true,
     },
   });
 

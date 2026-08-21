@@ -11,10 +11,12 @@ import {
   setWorkingHoursSchema,
   createBlockedSlotSchema,
   updateAppointmentStatusSchema,
+  updateCompanySettingsSchema,
 } from '@bookly/contracts';
 import { authMiddleware } from '../middleware/auth';
 import {
   users,
+  companies,
   services,
   staffServices,
   workingHours,
@@ -432,6 +434,52 @@ protectedAdmin.patch('/appointments/:id/status', zValidator('json', updateAppoin
 
   if (!updated) {
     return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } }, 404);
+  }
+
+  return c.json({ success: true, data: updated });
+});
+
+// --- 6. Configuración de la Empresa / Tenant (Tema, Marca, etc.) ---
+protectedAdmin.get('/company/settings', async (c) => {
+  const companyId = c.get('companyId')!;
+  const db = c.get('db');
+
+  const company = await db.query.companies.findFirst({
+    where: eq(companies.id, companyId),
+  });
+
+  if (!company) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Empresa no encontrada' } }, 404);
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      id: company.id,
+      name: company.name,
+      slug: company.slug,
+      timezone: company.timezone,
+      brandColor: company.brandColor,
+      logoUrl: company.logoUrl,
+      theme: company.theme,
+      subscriptionStatus: company.subscriptionStatus,
+    },
+  });
+});
+
+protectedAdmin.patch('/company/settings', zValidator('json', updateCompanySettingsSchema), async (c) => {
+  const companyId = c.get('companyId')!;
+  const body = c.req.valid('json');
+  const db = c.get('db');
+
+  const [updated] = await db
+    .update(companies)
+    .set({ ...body, updatedAt: new Date() })
+    .where(eq(companies.id, companyId))
+    .returning();
+
+  if (!updated) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Empresa no encontrada' } }, 404);
   }
 
   return c.json({ success: true, data: updated });

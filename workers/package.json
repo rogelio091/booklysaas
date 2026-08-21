@@ -11,6 +11,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply bookly-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply bookly-db --remote",
+    "db:seed": "wrangler d1 execute bookly-db --local --file=./src/db/seed.sql",
+    "db:seed:remote": "wrangler d1 execute bookly-db --remote --file=./src/db/seed.sql",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

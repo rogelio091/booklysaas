@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { ThemeService, BooklyTheme } from '../../../core/theme/theme.service';
 
 @Component({
   selector: 'app-admin-layout',
@@ -41,8 +42,15 @@ import { AuthStore } from '../../../core/auth/auth.store';
           <div class="tenant-identity">
             🏢 Clínica Dental Morales · Panel Administrativo
           </div>
-          <div class="system-status">
-            <span class="pulse-dot"></span> Cloudflare D1 Activo
+          <div class="header-right">
+            <div class="theme-picker">
+              <button (click)="changeTheme('midnight-emerald')" [class.active]="themeService.currentTheme() === 'midnight-emerald'">🌿 Emerald</button>
+              <button (click)="changeTheme('obsidian-luxe')" [class.active]="themeService.currentTheme() === 'obsidian-luxe'">💎 Obsidian</button>
+              <button (click)="changeTheme('titanium-oled')" [class.active]="themeService.currentTheme() === 'titanium-oled'">⚡ Titanium</button>
+            </div>
+            <div class="system-status">
+              <span class="pulse-dot"></span> Cloudflare D1
+            </div>
           </div>
         </header>
 
@@ -164,12 +172,30 @@ import { AuthStore } from '../../../core/auth/auth.store';
       font-weight: 600;
     }
     .tenant-identity { color: #ffffff; }
-    .system-status {
-      font-size: 0.75rem;
-      color: var(--color-text-muted);
+    .header-right {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 1.25rem;
+    }
+    .theme-picker {
+      display: flex;
+      gap: 0.25rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.2rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      button {
+        background: transparent;
+        border: none;
+        color: var(--color-text-muted);
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 0.25rem 0.55rem;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all 0.15s;
+        &.active { background: var(--color-primary); color: white; }
+      }
     }
     .pulse-dot {
       width: 8px;
@@ -187,6 +213,11 @@ import { AuthStore } from '../../../core/auth/auth.store';
 })
 export class AdminLayoutComponent {
   protected readonly authStore = inject(AuthStore);
+  protected readonly themeService = inject(ThemeService);
+
+  changeTheme(theme: BooklyTheme) {
+    this.themeService.setTheme(theme);
+  }
 
   logout() {
     this.authStore.logout();

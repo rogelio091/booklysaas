@@ -53,6 +53,11 @@ export const companies = sqliteTable(
     timezone: text('timezone').notNull().default('America/Guatemala'),
     currency: text('currency').notNull().default('GTQ'),
     brandColor: text('brand_color').default('#2563eb'),
+    theme: text('theme', {
+      enum: ['midnight-emerald', 'obsidian-luxe', 'titanium-oled'],
+    })
+      .notNull()
+      .default('midnight-emerald'),
     logoUrl: text('logo_url'),
     subscriptionStatus: text('subscription_status', {
       enum: ['trial', 'active', 'past_due', 'canceled'],

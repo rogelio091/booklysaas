@@ -3,6 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { ThemeService, BooklyTheme } from '../../core/theme/theme.service';
 import type {
   PublicCompanyDto,
   PublicServiceDto,
@@ -28,6 +29,12 @@ interface CalendarDay {
         
         <!-- Tenant Hero Header -->
         <header class="tenant-hero">
+          <div class="theme-quick-switch">
+            <button (click)="changeTheme('midnight-emerald')" [class.active]="themeService.currentTheme() === 'midnight-emerald'" title="Midnight Emerald">🌿</button>
+            <button (click)="changeTheme('obsidian-luxe')" [class.active]="themeService.currentTheme() === 'obsidian-luxe'" title="Obsidian Luxe">💎</button>
+            <button (click)="changeTheme('titanium-oled')" [class.active]="themeService.currentTheme() === 'titanium-oled'" title="Titanium OLED">⚡</button>
+          </div>
+
           @if (company(); as comp) {
             <div class="tenant-badge-glow">🦷</div>
             <h1>{{ comp.name }}</h1>
@@ -303,8 +310,31 @@ interface CalendarDay {
       text-align: center;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
       border-bottom: 1px solid var(--color-border);
+      position: relative;
       h1 { font-size: 1.35rem; font-weight: 800; color: #ffffff; margin-bottom: 0.25rem; }
       p { font-size: 0.85rem; color: var(--color-text-muted); }
+    }
+    .theme-quick-switch {
+      position: absolute;
+      top: 0.85rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.3rem;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.2rem;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--color-border);
+      button {
+        background: transparent;
+        border: none;
+        font-size: 0.75rem;
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+        border-radius: var(--radius-full);
+        opacity: 0.6;
+        transition: all 0.15s;
+        &.active, &:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+      }
     }
     .tenant-badge-glow {
       width: 54px;
@@ -560,6 +590,7 @@ interface CalendarDay {
 export class BookingComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly api = inject(ApiService);
+  protected readonly themeService = inject(ThemeService);
 
   protected readonly slug = signal<string>('demo');
   protected readonly company = signal<PublicCompanyDto | null>(null);
@@ -622,6 +653,7 @@ export class BookingComponent implements OnInit {
       next: (res) => {
         if (res.success && res.data) {
           this.company.set(res.data);
+          this.themeService.initFromCompany(res.data.theme);
           this.loadServicesAndStaff(slug);
         } else {
           this.loading.set(false);
@@ -660,6 +692,10 @@ export class BookingComponent implements OnInit {
     if (firstDay) {
       this.selectedDate.set(firstDay.dateStr);
     }
+  }
+
+  changeTheme(theme: BooklyTheme) {
+    this.themeService.setTheme(theme);
   }
 
   selectService(service: PublicServiceDto) {

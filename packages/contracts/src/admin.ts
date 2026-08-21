@@ -133,3 +133,16 @@ export const updateAppointmentStatusSchema = z.object({
   cancellationReason: z.string().optional(),
 });
 export type UpdateAppointmentStatusDto = z.infer<typeof updateAppointmentStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Configuración de Empresa (Settings)
+// ---------------------------------------------------------------------------
+export const updateCompanySettingsSchema = z.object({
+  name: z.string().min(2).optional(),
+  timezone: z.string().optional(),
+  brandColor: z.string().optional().nullable(),
+  logoUrl: z.string().url().optional().nullable(),
+  theme: z.enum(['midnight-emerald', 'obsidian-luxe', 'titanium-oled']).optional(),
+});
+export type UpdateCompanySettingsDto = z.infer<typeof updateCompanySettingsSchema>;
+
