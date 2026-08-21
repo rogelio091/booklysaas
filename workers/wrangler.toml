@@ -1,0 +1,13 @@
+name = "bookly-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "development"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bookly-db"
+database_id = "local-d1-id"
+migrations_dir = "src/db/migrations"

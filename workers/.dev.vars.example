@@ -1,0 +1,5 @@
+ENVIRONMENT=development
+JWT_SECRET=super_secret_jwt_key_development_32_chars_min
+RESEND_API_KEY=re_123456789
+RECURRENTE_API_KEY=key_test_123456789
+RECURRENTE_WEBHOOK_SECRET=whsec_test_123456789

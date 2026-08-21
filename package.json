@@ -1,0 +1,23 @@
+{
+  "name": "bookly-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bookly - SaaS de agendamiento y gestión de citas de servicios",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./frontend\" --filter \"./workers\" dev",
+    "dev:backend": "pnpm --filter \"./workers\" dev",
+    "dev:frontend": "pnpm --filter \"./frontend\" start",
+    "build": "pnpm -r build",
+    "build:backend": "pnpm --filter \"./workers\" build",
+    "build:frontend": "pnpm --filter \"./frontend\" build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
