@@ -13,26 +13,42 @@ interface ApiResponse<T> {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="page-container">
-      <header class="page-header">
+    <div class="page-shell">
+      <header class="header-flex">
         <div>
           <h1>Agenda de Citas</h1>
           <p class="subtitle">Gestiona y consulta las reservas en tiempo real</p>
         </div>
-        <button (click)="loadAppointments()" class="btn-refresh">🔄 Actualizar</button>
+        <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
       </header>
 
+      <!-- KPI Cards Row -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Citas Registradas</div>
+          <div class="kpi-value">{{ appointments().length }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Citas Confirmadas</div>
+          <div class="kpi-value text-success">{{ countConfirmed() }}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Estado del Motor</div>
+          <div class="kpi-value text-accent">En Línea</div>
+        </div>
+      </div>
+
       @if (loading()) {
-        <div class="state-msg">Cargando citas de la empresa...</div>
+        <div class="state-box">Cargando citas del tenant...</div>
       } @else {
-        <div class="table-card">
-          <table class="data-table">
+        <div class="table-glass-card">
+          <table class="dark-table">
             <thead>
               <tr>
                 <th>Fecha y Hora</th>
                 <th>Cliente</th>
                 <th>Teléfono</th>
-                <th>Profesional</th>
+                <th>Especialista</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -42,9 +58,9 @@ interface ApiResponse<T> {
                 <tr>
                   <td>
                     <strong>{{ apt.startAt | date:'mediumDate' }}</strong><br />
-                    <small>{{ apt.startAt | date:'shortTime' }} - {{ apt.endAt | date:'shortTime' }}</small>
+                    <small class="time-dim">{{ apt.startAt | date:'shortTime' }} - {{ apt.endAt | date:'shortTime' }}</small>
                   </td>
-                  <td>{{ apt.customerName }}</td>
+                  <td><strong>{{ apt.customerName }}</strong></td>
                   <td>{{ apt.customerPhone }}</td>
                   <td>{{ apt.staffName || 'Cualquiera disponible' }}</td>
                   <td>
@@ -54,14 +70,14 @@ interface ApiResponse<T> {
                   </td>
                   <td>
                     @if (apt.status === 'confirmed') {
-                      <button (click)="updateStatus(apt.id, 'completed')" class="btn-action complete">Completar</button>
-                      <button (click)="updateStatus(apt.id, 'canceled')" class="btn-action cancel">Cancelar</button>
+                      <button (click)="updateStatus(apt.id, 'completed')" class="btn-action complete">✓ Completar</button>
+                      <button (click)="updateStatus(apt.id, 'canceled')" class="btn-action cancel">✕ Cancelar</button>
                     }
                   </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-state">No hay citas registradas en este momento.</td>
+                  <td colspan="6" class="empty-cell">No hay citas registradas en este momento.</td>
                 </tr>
               }
             </tbody>
@@ -71,79 +87,82 @@ interface ApiResponse<T> {
     </div>
   `,
   styles: [`
-    .page-container {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-    .page-header {
+    .page-shell { display: flex; flex-direction: column; gap: 1.5rem; }
+    .header-flex {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      h1 { font-size: 1.5rem; }
+      h1 { font-size: 1.5rem; font-weight: 800; color: #ffffff; }
       .subtitle { color: var(--color-text-muted); font-size: 0.875rem; }
     }
-    .btn-refresh {
-      padding: 0.5rem 1rem;
+    .btn-glass {
+      padding: 0.55rem 1rem;
       border: 1px solid var(--color-border);
-      background: var(--color-surface);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--color-text);
       border-radius: var(--radius-md);
       cursor: pointer;
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 0.825rem;
+      transition: all 0.15s;
+      &:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--color-border-highlight); }
     }
-    .table-card {
-      background: var(--color-surface);
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .kpi-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.15rem 1.25rem;
+    }
+    .kpi-label { font-size: 0.75rem; font-weight: 700; color: var(--color-text-dim); text-transform: uppercase; margin-bottom: 0.35rem; }
+    .kpi-value { font-size: 1.5rem; font-weight: 800; color: #ffffff; }
+    .text-success { color: var(--color-success); }
+    .text-accent { color: var(--color-accent); }
+    .table-glass-card {
+      background: var(--color-surface-glass);
       border-radius: var(--radius-lg);
       border: 1px solid var(--color-border);
       overflow: hidden;
+      box-shadow: var(--shadow-card);
     }
-    .data-table {
+    .dark-table {
       width: 100%;
       border-collapse: collapse;
-      text-align: left;
-      font-size: 0.875rem;
-      th, td {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid var(--color-border);
-      }
-      th {
-        background: #f8fafc;
-        font-weight: 600;
-        color: var(--color-text-muted);
-      }
+      font-size: 0.85rem;
+      th, td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--color-border); text-align: left; }
+      th { background: rgba(0, 0, 0, 0.3); font-weight: 700; color: var(--color-text-muted); }
+      td { color: var(--color-text); }
     }
+    .time-dim { color: var(--color-text-muted); font-size: 0.75rem; }
     .status-pill {
       display: inline-block;
-      padding: 0.25rem 0.6rem;
+      padding: 0.25rem 0.65rem;
       border-radius: var(--radius-full);
       font-size: 0.75rem;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: capitalize;
-      &[data-status="confirmed"] { background: #dcfce7; color: #166534; }
-      &[data-status="pending"] { background: #fef9c3; color: #854d0e; }
-      &[data-status="completed"] { background: #e0e7ff; color: #3730a3; }
-      &[data-status="canceled"] { background: #fee2e2; color: #991b1b; }
+      &[data-status="confirmed"] { background: var(--color-success-bg); color: var(--color-success); border: 1px solid rgba(16, 185, 129, 0.3); }
+      &[data-status="pending"] { background: var(--color-warning-bg); color: var(--color-warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+      &[data-status="completed"] { background: var(--color-primary-light); color: var(--color-primary); border: 1px solid var(--color-primary); }
+      &[data-status="canceled"] { background: var(--color-danger-bg); color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.3); }
     }
     .btn-action {
-      padding: 0.25rem 0.5rem;
+      padding: 0.3rem 0.6rem;
       border: none;
       border-radius: var(--radius-sm);
       font-size: 0.75rem;
+      font-weight: 600;
       cursor: pointer;
-      margin-right: 0.25rem;
-      &.complete { background: #dcfce7; color: #166534; }
-      &.cancel { background: #fee2e2; color: #991b1b; }
+      margin-right: 0.35rem;
+      &.complete { background: var(--color-success-bg); color: var(--color-success); }
+      &.cancel { background: var(--color-danger-bg); color: var(--color-danger); }
     }
-    .empty-state {
-      text-align: center;
-      padding: 3rem !important;
-      color: var(--color-text-muted);
-    }
-    .state-msg {
-      text-align: center;
-      padding: 3rem;
-      color: var(--color-text-muted);
-    }
+    .empty-cell { text-align: center; padding: 3rem !important; color: var(--color-text-muted); }
+    .state-box { text-align: center; padding: 3rem; color: var(--color-text-muted); }
   `]
 })
 export class AppointmentsComponent implements OnInit {
@@ -154,6 +173,10 @@ export class AppointmentsComponent implements OnInit {
 
   ngOnInit() {
     this.loadAppointments();
+  }
+
+  countConfirmed(): number {
+    return this.appointments().filter((a) => a.status === 'confirmed').length;
   }
 
   loadAppointments() {

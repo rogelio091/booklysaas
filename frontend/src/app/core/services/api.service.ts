@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import type {
   PublicCompanyDto,
   PublicServiceDto,
+  PublicStaffDto,
   SlotDto,
   CreateBookingDto,
 } from '@bookly/contracts';
@@ -33,7 +34,12 @@ export class ApiService {
     return this.http.get<ApiResponse<PublicServiceDto[]>>(`/api/public/${slug}/services`);
   }
 
-  // 3. Disponibilidad de slots
+  // 3. Staff disponible
+  getStaff(slug: string): Observable<ApiResponse<PublicStaffDto[]>> {
+    return this.http.get<ApiResponse<PublicStaffDto[]>>(`/api/public/${slug}/staff`);
+  }
+
+  // 4. Disponibilidad de slots
   getAvailability(
     slug: string,
     serviceId: number,
@@ -53,11 +59,11 @@ export class ApiService {
     );
   }
 
-  // 4. Crear reserva
+  // 5. Crear reserva
   createBooking(
     slug: string,
     booking: CreateBookingDto,
-  ): Observable<ApiResponse<unknown>> {
-    return this.http.post<ApiResponse<unknown>>(`/api/public/${slug}/book`, booking);
+  ): Observable<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>> {
+    return this.http.post<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>>(`/api/public/${slug}/book`, booking);
   }
 }

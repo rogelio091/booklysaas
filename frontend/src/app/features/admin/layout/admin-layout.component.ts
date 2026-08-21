@@ -9,16 +9,17 @@ import { AuthStore } from '../../../core/auth/auth.store';
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <div class="admin-shell">
-      <aside class="sidebar">
-        <div class="logo">
+      <aside class="sidebar-glass">
+        <div class="logo-box">
+          <span class="logo-icon">⚡</span>
           <h2>Bookly</h2>
-          <span class="badge">Admin</span>
+          <span class="badge-pill">Admin</span>
         </div>
 
-        <nav class="nav-links">
+        <nav class="nav-menu">
           <a routerLink="/app/appointments" routerLinkActive="active" class="nav-item">
             <span class="icon">📅</span>
-            <span>Agenda</span>
+            <span>Agenda de Citas</span>
           </a>
           <a routerLink="/app/services" routerLinkActive="active" class="nav-item">
             <span class="icon">🛎</span>
@@ -26,23 +27,26 @@ import { AuthStore } from '../../../core/auth/auth.store';
           </a>
         </nav>
 
-        <div class="user-footer">
+        <div class="user-card-footer">
           <div class="user-info">
             <strong>{{ authStore.user()?.name || 'Administrador' }}</strong>
-            <small>{{ authStore.user()?.email }}</small>
+            <small>{{ authStore.user()?.email || 'admin@tenant.com' }}</small>
           </div>
           <button (click)="logout()" class="btn-logout" title="Cerrar sesión">Salir</button>
         </div>
       </aside>
 
-      <main class="main-content">
-        <header class="top-bar">
-          <div class="company-badge">
-            🏢 Panel de Gestión Multi-Tenant
+      <main class="main-body">
+        <header class="topbar-glass">
+          <div class="tenant-identity">
+            🏢 Clínica Dental Morales · Panel Administrativo
+          </div>
+          <div class="system-status">
+            <span class="pulse-dot"></span> Cloudflare D1 Activo
           </div>
         </header>
 
-        <div class="content-body">
+        <div class="content-scroll">
           <router-outlet />
         </div>
       </main>
@@ -54,37 +58,48 @@ import { AuthStore } from '../../../core/auth/auth.store';
       height: 100vh;
       width: 100vw;
       overflow: hidden;
-      background: var(--color-background);
+      background: var(--color-bg);
+      background-image: var(--color-bg-gradient);
     }
-    .sidebar {
+    .sidebar-glass {
       width: 260px;
-      background: var(--color-surface);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border-right: 1px solid var(--color-border);
       display: flex;
       flex-direction: column;
-      padding: 1.5rem 1rem;
+      padding: 1.75rem 1.25rem;
     }
-    .logo {
+    .logo-box {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      margin-bottom: 2rem;
+      margin-bottom: 2.25rem;
       h2 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #ffffff;
+      }
+      .logo-icon {
         font-size: 1.25rem;
         color: var(--color-primary);
       }
     }
-    .badge {
-      font-size: 0.75rem;
-      padding: 0.15rem 0.4rem;
-      background: #e0e7ff;
-      color: #3730a3;
-      border-radius: var(--radius-sm);
+    .badge-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full);
+      text-transform: uppercase;
     }
-    .nav-links {
+    .nav-menu {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.4rem;
       flex: 1;
     }
     .nav-item {
@@ -93,21 +108,25 @@ import { AuthStore } from '../../../core/auth/auth.store';
       gap: 0.75rem;
       padding: 0.75rem 1rem;
       border-radius: var(--radius-md);
-      color: var(--color-text);
+      color: var(--color-text-muted);
       text-decoration: none;
-      font-weight: 500;
-      transition: background 0.15s;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.15s;
       &:hover {
-        background: #f1f5f9;
+        background: rgba(255, 255, 255, 0.05);
+        color: #ffffff;
       }
       &.active {
-        background: #eff6ff;
-        color: var(--color-primary);
+        background: var(--color-primary-light);
+        color: #ffffff;
+        border: 1px solid var(--color-primary);
+        box-shadow: var(--shadow-glow);
       }
     }
-    .user-footer {
+    .user-card-footer {
       border-top: 1px solid var(--color-border);
-      padding-top: 1rem;
+      padding-top: 1.25rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -116,34 +135,50 @@ import { AuthStore } from '../../../core/auth/auth.store';
       display: flex;
       flex-direction: column;
       font-size: 0.8125rem;
-      small {
-        color: var(--color-text-muted);
-      }
+      strong { color: #ffffff; }
+      small { color: var(--color-text-dim); }
     }
     .btn-logout {
       background: none;
       border: none;
       color: var(--color-danger);
       font-size: 0.8125rem;
+      font-weight: 600;
       cursor: pointer;
     }
-    .main-content {
+    .main-body {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-    .top-bar {
-      height: 60px;
-      background: var(--color-surface);
+    .topbar-glass {
+      height: 64px;
+      background: rgba(0, 0, 0, 0.2);
       border-bottom: 1px solid var(--color-border);
       display: flex;
       align-items: center;
+      justify-content: space-between;
       padding: 0 2rem;
-      font-size: 0.9375rem;
-      font-weight: 500;
+      font-size: 0.9rem;
+      font-weight: 600;
     }
-    .content-body {
+    .tenant-identity { color: #ffffff; }
+    .system-status {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--color-success);
+      border-radius: var(--radius-full);
+      box-shadow: 0 0 8px var(--color-success);
+    }
+    .content-scroll {
       flex: 1;
       padding: 2rem;
       overflow-y: auto;
