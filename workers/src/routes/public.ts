@@ -2,7 +2,17 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { eq, and, asc } from 'drizzle-orm';
 import { availabilityQuerySchema, createBookingSchema } from '@bookly/contracts';
-import { companies, services, users, appointments, appointmentItems, customers } from '../db/schema';
+import {
+  companies,
+  services,
+  users,
+  appointments,
+  appointmentItems,
+  customers,
+  workingHours,
+  blockedSlots,
+} from '../db/schema';
+import { computeAvailability } from '../services/slot-engine';
 import type { AppContext } from '../types';
 
 export const publicRoutes = new Hono<AppContext>();
@@ -118,13 +128,73 @@ publicRoutes.get(
       );
     }
 
-    // Aquí se invoca el Slot Engine. Retornamos slots simulados iniciales para el endpoint
+    // 4. Consultar disponibilidad real con el Slot Engine
+    const service = await db.query.services.findFirst({
+      where: and(eq(services.companyId, company.id), eq(services.id, query.serviceId)),
+    });
+
+    if (!service) {
+      return c.json(
+        { success: false, error: { code: 'NOT_FOUND', message: 'Servicio no encontrado' } },
+        404,
+      );
+    }
+
+    const staffMembers = await db.query.users.findMany({
+      where: and(eq(users.companyId, company.id), eq(users.isActive, true)),
+      columns: { id: true, name: true },
+    });
+
+    const hours = await db.query.workingHours.findMany({
+      where: and(eq(workingHours.companyId, company.id), eq(workingHours.isActive, true)),
+    });
+
+    const existingAppointments = await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.companyId, company.id),
+        eq(appointments.status, 'confirmed'),
+      ),
+    });
+
+    const blocks = await db.query.blockedSlots.findMany({
+      where: eq(blockedSlots.companyId, company.id),
+    });
+
+    const slots = computeAvailability({
+      date: query.date,
+      timezone: company.timezone,
+      serviceDurationMinutes: service.durationMinutes,
+      intervalMinutes: 15,
+      workingHours: hours.map((h) => ({
+        userId: h.userId,
+        dayOfWeek: h.dayOfWeek,
+        startTime: h.startTime,
+        endTime: h.endTime,
+        breakStartTime: h.breakStartTime,
+        breakEndTime: h.breakEndTime,
+        isActive: h.isActive,
+      })),
+      appointments: existingAppointments.map((a) => ({
+        staffId: a.staffId,
+        startAt: a.startAt.getTime(),
+        endAt: a.endAt.getTime(),
+        bufferAfterMinutes: a.bufferMinutes ?? 0,
+      })),
+      blockedSlots: blocks.map((b) => ({
+        userId: b.userId,
+        startAt: b.startAt.getTime(),
+        endAt: b.endAt.getTime(),
+      })),
+      staff: staffMembers.map((s) => ({ id: s.id, name: s.name })),
+      staffId: query.staffId ?? null,
+    });
+
     return c.json({
       success: true,
       data: {
         date: query.date,
         timezone: company.timezone,
-        slots: [],
+        slots,
       },
     });
   },
