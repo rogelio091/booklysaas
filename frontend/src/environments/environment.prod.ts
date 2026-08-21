@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://bookly-api.diegorogelio.workers.dev/api',
+  apiUrl: 'https://bookly-api-prod.diegorogelio.workers.dev/api',
 };
