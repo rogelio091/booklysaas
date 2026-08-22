@@ -1,9 +1,14 @@
 @use 'tokens';
+@use 'breakpoints' as bp;
 
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html, body {
+  height: 100%;
 }
 
 body {
@@ -15,6 +20,12 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden; // evita scroll horizontal en móvil
+}
+
+// Reducir tamaño base de fuente en pantallas muy pequeñas
+@include bp.mobile {
+  html { font-size: 15px; }
 }
 
 /* Glassmorphism utility */

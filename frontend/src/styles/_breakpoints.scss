@@ -1,0 +1,72 @@
+// Responsive Breakpoints — Bookly
+// Definición única de puntos de corte para todo el frontend.
+// Base Mobile-First: escribimos estilos base (móvil) y usamos @include para tablet/desktop.
+
+// Breakpoints (mobile-first, min-width)
+$breakpoint-sm: 480px;   // Teléfonos grandes
+$breakpoint-md: 768px;   // Tablets
+$breakpoint-lg: 1024px;  // Laptops
+$breakpoint-xl: 1280px;  // Desktops
+
+// Mixins
+@mixin mobile {
+  @content;
+}
+
+@mixin tablet {
+  @media (min-width: $breakpoint-md) { @content; }
+}
+
+@mixin laptop {
+  @media (min-width: $breakpoint-lg) { @content; }
+}
+
+@mixin desktop {
+  @media (min-width: $breakpoint-xl) { @content; }
+}
+
+// Mixin para mostrar/ocultar elementos según dispositivo
+@mixin hide-on-mobile {
+  display: none !important;
+  @include tablet {
+    display: inline-block !important;
+  }
+}
+
+@mixin show-on-mobile-only {
+  display: inline-block !important;
+  @include tablet {
+    display: none !important;
+  }
+}
+
+// Mixin para convertir tablas a tarjetas en móvil
+@mixin table-to-cards($stack-cols: 2) {
+  @media (max-width: ($breakpoint-md - 1px)) {
+    thead { display: none; }
+    tbody, tr, td { display: block; width: 100%; }
+    tr {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      margin-bottom: 0.75rem;
+      padding: 0.5rem;
+      background: var(--color-surface-glass);
+    }
+    td {
+      border: none !important;
+      padding: 0.4rem 0.6rem !important;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      &::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: var(--color-text-muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        flex-shrink: 0;
+      }
+    }
+  }
+}

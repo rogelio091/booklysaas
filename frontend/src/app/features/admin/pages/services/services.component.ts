@@ -152,6 +152,7 @@ interface ApiResponse<T> {
       align-items: center;
       justify-content: center;
       z-index: 200;
+      padding: 1rem;
     }
     .dark-modal-card {
       background: var(--color-surface);
@@ -160,6 +161,8 @@ interface ApiResponse<T> {
       border-radius: var(--radius-lg);
       width: 100%;
       max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
       box-shadow: var(--shadow-card);
       h2 { font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 1.25rem; }
     }
@@ -191,8 +194,7 @@ interface ApiResponse<T> {
       justify-content: flex-end;
       gap: 0.75rem;
       margin-top: 1rem;
-    }
-    .btn-cancel {
+    }    .btn-cancel {
       background: transparent;
       border: 1px solid var(--color-border);
       color: var(--color-text);
@@ -203,6 +205,23 @@ interface ApiResponse<T> {
       &:hover { background: rgba(255, 255, 255, 0.05); }
     }
     .state-box, .empty-state { text-align: center; padding: 3rem; color: var(--color-text-muted); }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 767px) {
+          .header-flex { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+          .header-flex .btn-primary-glow { align-self: flex-start; }
+          .services-grid { grid-template-columns: 1fr; }
+          .dark-modal-backdrop { padding: 0; align-items: flex-end; }
+          .dark-modal-card {
+            max-width: 100%;
+            max-height: 92vh;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            border-bottom: none;
+          }
+          .form-row { grid-template-columns: 1fr; }
+          .modal-actions { flex-direction: column-reverse; }
+          .modal-actions .btn-primary-glow, .modal-actions .btn-cancel { width: 100%; }
+        }
   `]
 })
 export class ServicesComponent implements OnInit {

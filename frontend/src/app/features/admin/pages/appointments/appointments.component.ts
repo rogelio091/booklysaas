@@ -15,7 +15,7 @@ interface ApiResponse<T> {
   template: `
     <div class="page-shell">
       <header class="header-flex">
-        <div>
+        <div class="header-title">
           <h1>Agenda de Citas</h1>
           <p class="subtitle">Gestiona y consulta las reservas en tiempo real</p>
         </div>
@@ -56,19 +56,19 @@ interface ApiResponse<T> {
             <tbody>
               @for (apt of appointments(); track apt.id) {
                 <tr>
-                  <td>
+                  <td data-label="Fecha y Hora">
                     <strong>{{ apt.startAt | date:'mediumDate' }}</strong><br />
                     <small class="time-dim">{{ apt.startAt | date:'shortTime' }} - {{ apt.endAt | date:'shortTime' }}</small>
                   </td>
-                  <td><strong>{{ apt.customerName }}</strong></td>
-                  <td>{{ apt.customerPhone }}</td>
-                  <td>{{ apt.staffName || 'Cualquiera disponible' }}</td>
-                  <td>
+                  <td data-label="Cliente"><strong>{{ apt.customerName }}</strong></td>
+                  <td data-label="Teléfono">{{ apt.customerPhone }}</td>
+                  <td data-label="Especialista">{{ apt.staffName || 'Cualquiera disponible' }}</td>
+                  <td data-label="Estado">
                     <span class="status-pill" [attr.data-status]="apt.status">
                       {{ apt.status }}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Acciones">
                     @if (apt.status === 'confirmed') {
                       <button (click)="updateStatus(apt.id, 'completed')" class="btn-action complete">✓ Completar</button>
                       <button (click)="updateStatus(apt.id, 'canceled')" class="btn-action cancel">✕ Cancelar</button>
@@ -92,6 +92,8 @@ interface ApiResponse<T> {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
       h1 { font-size: 1.5rem; font-weight: 800; color: #ffffff; }
       .subtitle { color: var(--color-text-muted); font-size: 0.875rem; }
     }
@@ -105,6 +107,7 @@ interface ApiResponse<T> {
       font-weight: 600;
       font-size: 0.825rem;
       transition: all 0.15s;
+      white-space: nowrap;
       &:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--color-border-highlight); }
     }
     .kpi-grid {
@@ -163,6 +166,45 @@ interface ApiResponse<T> {
     }
     .empty-cell { text-align: center; padding: 3rem !important; color: var(--color-text-muted); }
     .state-box { text-align: center; padding: 3rem; color: var(--color-text-muted); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 767px) {
+      .header-flex { flex-direction: column; align-items: stretch; }
+      .header-flex .btn-glass { align-self: flex-start; }
+      .kpi-grid { grid-template-columns: 1fr; gap: 0.75rem; }
+      .kpi-card { padding: 0.9rem 1rem; }
+      .kpi-value { font-size: 1.25rem; }
+
+      /* Tabla → tarjetas */
+      .dark-table thead { display: none; }
+      .dark-table tbody, .dark-table tr, .dark-table td { display: block; width: 100%; }
+      .dark-table tr {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        margin-bottom: 0.85rem;
+        padding: 0.4rem 0.75rem;
+        background: var(--color-surface-glass);
+      }
+      .dark-table td {
+        border: none !important;
+        padding: 0.45rem 0.4rem !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        text-align: right;
+      }
+      .dark-table td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        color: var(--color-text-muted);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        flex-shrink: 0;
+      }
+      .dark-table td:last-child { justify-content: flex-start; }
+      .dark-table td[data-label="Acciones"]::before { align-self: flex-start; margin-top: 0.35rem; }
+    }
   `]
 })
 export class AppointmentsComponent implements OnInit {
