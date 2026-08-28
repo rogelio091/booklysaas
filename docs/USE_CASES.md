@@ -237,6 +237,10 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 
 **Enforcement de citas/mes**: al llegar al tope mensual, la empresa no puede aceptar más reservas hasta el siguiente ciclo (se le ofrece upgrade). Contador se resetea por `billing_day`.
 
+> ✅ **DECISIÓN CONFIRMADA (2026-08-28, Judgment Day):** se aplican **cuotas de citas por mes**.
+> Esta decisión deroga la línea "Citas: Ilimitadas" de `BOOKLY_TECHNICAL_ARCHITECTURE.md` para todos los planes.
+> **`BOOKLY_TECHNICAL_ARCHITECTURE.md` queda desactualizado en: límites de citas, roles (owner/manager) y multi-sucursal Enterprise — debe actualizarse.**
+
 ### 9.3 Flujo de suscripción (patrón BarberApp → Recurrente)
 
 ```
@@ -351,3 +355,35 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 8. [ ] Recordatorios por email/WhatsApp (cron)
 9. [ ] RequireRole en rutas admin
 10. [ ] Panel superadmin en frontend
+
+---
+
+## 14. Hallazgos del Judgment Day (fuente de implementación)
+
+> Revisión adversarial con dos jueces ciegos (judge-a / judge-b) sobre este documento vs. la implementación actual.
+> **Cada hallazgo es un gap que la implementación DEBE cerrar.** Los hallazgos `deterministic` son verificables por código; `inferential` requieren decisión.
+
+| ID | Severidad | Hallazgo | Dónde aplicar | Evidencia |
+|---|---|---|---|---|
+| JD-001 | CRITICAL | La cita debe nacer `pending` y requerir confirmación, pero hoy se inserta `confirmed` y se envía `.ics` inmediato | `routes/public.ts:274-312` + wizard | deterministic |
+| JD-002 | CRITICAL | Falta re-validación transaccional del slot en `POST /book` (anti doble-reserva) | `routes/public.ts:272-288` + Slot Engine | deterministic |
+| JD-003 | BLOCKER | Entidad `locations` (lugares de atención) + pivot `service_locations` + `location_id` no existen en schema | `db/schema.ts` | deterministic |
+| JD-004 | BLOCKER | `monthlyAppointments` y `billing_day` no existen en schema; contradice arquitectura (ya derogada) | `db/schema.ts` `saasPlans`/`companies` | deterministic |
+| JD-005 | BLOCKER | Estado `locked` y gracia 15/29 días no modelados; webhook pasa directo a `canceled` | `routes/webhooks.ts:93-101` + enum | deterministic |
+| JD-006 | BLOCKER | `staff_services` no se respeta: disponibilidad devuelve TODOS los staff activos, sin filtrar por servicio | `routes/public.ts:145-190` | deterministic |
+| JD-A-005 | CRITICAL | Query de disponibilidad carga TODAS las citas confirmadas sin filtro de fecha (perf / timeout) | `routes/public.ts:118-125` | deterministic |
+| JD-B-009 | BLOCKER | Staff no puede confirmar citas (solo admin) y ve agenda completa del tenant | `routes/admin.ts:568` + `middleware/auth.ts:93-94` | deterministic |
+| JD-B-010 | BLOCKER | Transiciones de estado de cita sin validar estado actual (cancelada→confirmada posible) | `routes/admin.ts:568-582` | deterministic |
+| JD-B-011 | BLOCKER | Frontend usa timezone del navegador en vez de la del tenant | `booking.component.ts:623-634` | deterministic |
+| JD-B-012 | BLOCKER | No hay token público de cancelación ni ruta de autogestión del cliente | `schema.ts` + `routes/public.ts` | deterministic |
+| JD-B-014 | BLOCKER | Superadmin no tiene ruta cross-tenant; `users` exige `companyId` para todo usuario | `schema.ts:83-85` | inferential |
+| JD-A-006 | WARNING | Campo `is_default` (servicio general) no existe en schema | `db/schema.ts` `services` | deterministic |
+| JD-A-010 | WARNING | Disponibilidad devuelve staff sin filtrar por asignación a servicio | `routes/public.ts:110-116` | deterministic |
+| JD-B-013 | WARNING | Servicio con `is_active=false` sigue reservable vía request manipulado | `routes/public.ts:134-136, 225-227` | deterministic |
+| JD-A-012/015/016 | WARNING | Contradicciones con `BOOKLY_TECHNICAL_ARCHITECTURE.md` (multi-sucursal, límites, roles owner/manager) — documento debe sincronizarse | docs | inferential |
+
+### Estado de los hallazgos
+
+- Todos quedan `open` y se cierran conforme la implementación los aborde.
+- JD-004 quedó **resuelto por decisión de producto** (cuotas aplicadas) pero **pendiente de schema** (`monthlyAppointments`, `billing_day`).
+- Verificar contra el código fuente al implementar cada ítem del checklist.
