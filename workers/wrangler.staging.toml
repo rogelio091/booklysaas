@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Secrets (configure via `wrangler secret put`, never committed to config):
+#   ENCRYPTION_KEY — 256-bit master key for tenant credential encryption at rest
+#                    (AES-GCM via HKDF, see src/utils/crypto.ts).
+
 [vars]
 ENVIRONMENT = "staging"
 
@@ -11,3 +15,6 @@ binding = "DB"
 database_name = "bookly-db-staging"
 database_id = "3ac0e526-2d04-4d2f-ae83-df41512ddccb"
 migrations_dir = "src/db/migrations"
+
+[triggers]
+crons = ["0 * * * *"]

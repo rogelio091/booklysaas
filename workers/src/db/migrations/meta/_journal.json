@@ -15,6 +15,13 @@
       "when": 1787282234620,
       "tag": "0001_fast_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787959800757,
+      "tag": "0002_little_titanium_man",
+      "breakpoints": true
     }
   ]
 }

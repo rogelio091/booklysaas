@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -31,6 +32,7 @@ export const saasPlans = sqliteTable('saas_plans', {
   name: text('name').notNull(),
   monthlyPriceQtz: integer('monthly_price_qtz').notNull(),
   maxStaff: integer('max_staff').notNull().default(1),
+  monthlyAppointments: integer('monthly_appointments').notNull().default(100),
   featuresJson: text('features_json').notNull().default('{}'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
@@ -60,16 +62,44 @@ export const companies = sqliteTable(
       .default('midnight-emerald'),
     logoUrl: text('logo_url'),
     subscriptionStatus: text('subscription_status', {
-      enum: ['trial', 'active', 'past_due', 'canceled'],
+      enum: ['trial', 'active', 'past_due', 'canceled', 'locked'],
     })
       .notNull()
       .default('trial'),
     trialEndsAt: integer('trial_ends_at', { mode: 'timestamp_ms' }),
     recurrenteSubscriptionId: text('recurrente_subscription_id'),
+    billingDay: integer('billing_day').notNull().default(1),
+    recurrenteApiKeyEnc: text('recurrente_api_key_enc'),
+    recurrenteWebhookSecretEnc: text('recurrente_webhook_secret_enc'),
     ...timestamps,
   },
   (t) => ({
     slugIdx: uniqueIndex('companies_slug_idx').on(t.slug),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Lugares de Atención (Locations)
+// ---------------------------------------------------------------------------
+export const locations = sqliteTable(
+  'locations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    address: text('address'),
+    slug: text('slug').notNull(),
+    isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    ...timestamps,
+  },
+  (t) => ({
+    companyIdx: index('locations_company_idx').on(t.companyId),
+    companySlugIdx: uniqueIndex('locations_company_slug_idx').on(
+      t.companyId,
+      t.slug,
+    ),
   }),
 );
 
@@ -120,6 +150,17 @@ export const services = sqliteTable(
     priceQtz: integer('price_qtz').notNull().default(0),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
     displayOrder: integer('display_order').notNull().default(0),
+    isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+    requiresDeposit: integer('requires_deposit', { mode: 'boolean' })
+      .notNull()
+      .default(false),
+    depositAmountQtz: integer('deposit_amount_qtz').notNull().default(0),
+    depositPercentage: integer('deposit_percentage'),
+    autoConfirmOnPayment: integer('auto_confirm_on_payment', {
+      mode: 'boolean',
+    })
+      .notNull()
+      .default(false),
     ...timestamps,
   },
   (t) => ({
@@ -128,6 +169,28 @@ export const services = sqliteTable(
       t.companyId,
       t.isActive,
     ),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Relación Servicio <-> Lugares (pivot)
+// ---------------------------------------------------------------------------
+export const serviceLocations = sqliteTable(
+  'service_locations',
+  {
+    serviceId: integer('service_id')
+      .notNull()
+      .references(() => services.id, { onDelete: 'cascade' }),
+    locationId: integer('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.serviceId, t.locationId] }),
+    companyIdx: index('service_locations_company_idx').on(t.companyId),
   }),
 );
 
@@ -163,6 +226,9 @@ export const workingHours = sqliteTable(
     companyId: integer('company_id')
       .notNull()
       .references(() => companies.id, { onDelete: 'cascade' }),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'cascade',
+    }),
     userId: integer('user_id').references(() => users.id, {
       onDelete: 'cascade',
     }),
@@ -193,6 +259,9 @@ export const blockedSlots = sqliteTable(
     companyId: integer('company_id')
       .notNull()
       .references(() => companies.id, { onDelete: 'cascade' }),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'cascade',
+    }),
     userId: integer('user_id').references(() => users.id, {
       onDelete: 'cascade',
     }),
@@ -271,6 +340,10 @@ export const appointments = sqliteTable(
     source: text('source', { enum: ['public_portal', 'admin', 'staff'] })
       .notNull()
       .default('public_portal'),
+    publicToken: text('public_token'),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
     cancellationReason: text('cancellation_reason'),
     notes: text('notes'),
     ...timestamps,
@@ -371,6 +444,9 @@ export const payments = sqliteTable(
     invoiceId: integer('invoice_id').references(() => invoices.id, {
       onDelete: 'set null',
     }),
+    appointmentId: integer('appointment_id').references(() => appointments.id, {
+      onDelete: 'set null',
+    }),
     gateway: text('gateway', {
       enum: ['recurrente', 'cash', 'transfer', 'other'],
     })
@@ -391,5 +467,34 @@ export const payments = sqliteTable(
   (t) => ({
     companyIdx: index('payments_company_idx').on(t.companyId),
     invoiceIdx: index('payments_invoice_idx').on(t.invoiceId),
+    appointmentIdx: index('payments_appointment_idx').on(t.appointmentId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Facturación del Tenant (ciclo de suscripción a Bookly)
+// ---------------------------------------------------------------------------
+export const tenantBillings = sqliteTable(
+  'tenant_billings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    periodStart: integer('period_start', { mode: 'timestamp_ms' }).notNull(),
+    periodEnd: integer('period_end', { mode: 'timestamp_ms' }).notNull(),
+    amountQtz: integer('amount_qtz').notNull(),
+    status: text('status', {
+      enum: ['pending', 'paid', 'overdue', 'void'],
+    })
+      .notNull()
+      .default('pending'),
+    recurrenteInvoiceId: text('recurrente_invoice_id'),
+    paidAt: integer('paid_at', { mode: 'timestamp_ms' }),
+    ...timestamps,
+  },
+  (t) => ({
+    companyIdx: index('tenant_billings_company_idx').on(t.companyId),
+    statusIdx: index('tenant_billings_status_idx').on(t.companyId, t.status),
   }),
 );

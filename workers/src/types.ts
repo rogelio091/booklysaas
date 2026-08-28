@@ -6,6 +6,7 @@ export interface Env {
   DB: D1Database;
   ENVIRONMENT: string;
   JWT_SECRET: string;
+  ENCRYPTION_KEY: string;
   RESEND_API_KEY?: string;
   RECURRENTE_API_KEY?: string;
   RECURRENTE_WEBHOOK_SECRET?: string;
