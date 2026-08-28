@@ -4,7 +4,7 @@
 > Basado en el patrón multi-tenant validado en BarberApp y adaptado al dominio de agendamiento.
 > Autoridad sobre este documento: equipo de desarrollo.
 
-**Última actualización:** 2026-08-28
+**Última actualización:** 2026-08-28 (pagos del tenant + anticipo/seña + trial 30 días)
 
 ---
 
@@ -24,7 +24,7 @@
 |---|---|
 | `cliente` | Persona que reserva desde el portal público SIN crear cuenta |
 | `sistema` | Procesos automáticos (webhooks, cron, notificaciones) |
-| `recurrente` | Pasarela de pago externa (suscripciones y señas) |
+| `recurrente` | Pasarela de pago externa — 2 usos: (a) suscripción a Bookly (key de la plataforma), (b) cobro de anticipos/señas al tenant (key propia del negocio) |
 | `resend` | Servicio de email transaccional |
 
 ---
@@ -50,7 +50,9 @@ Cada empresa es un **tenant aislado por `company_id`**. Toda query de dominio fi
 | `plan_id` | fk → `saas_plans` | Plan activo |
 | `subscription_status` | enum | `trial` \| `active` \| `past_due` \| `canceled` \| `locked` |
 | `trial_ends_at` | timestamp | |
-| `recurrente_subscription_id` | text | ID de suscripción en pasarela |
+| `recurrente_subscription_id` | text | ID de suscripción en pasarela (cobro a Bookly) |
+| `recurrente_api_key_enc` | text | **API key de Recurrente del tenant (cifrada)** para cobrar anticipos/señas — write-only, nunca se expone |
+| `recurrente_webhook_secret_enc` | text | Secreto de webhook del tenant (cifrado) para validar pagos de sus citas |
 | `billing_day` | int | Día de facturación |
 
 ### 2.2 Aislamiento
@@ -244,7 +246,7 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 ### 9.3 Flujo de suscripción (patrón BarberApp → Recurrente)
 
 ```
-1. Superadmin crea empresa (empieza en TRIAL, 14 días).
+1. Superadmin crea empresa (empieza en TRIAL, **30 días**).
 2. Cron verifica trial vencido → crea TenantBilling PENDING.
 3. Admin paga → POST /api/billings/:id/create-checkout
    → Recurrente POST /api/checkouts (charge_type: one_time)
@@ -262,6 +264,63 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 - `past_due` tras 15 días sin pago.
 - `locked` tras 29 días → se bloquea el login del tenant.
 - Al pagar, se reactiva.
+
+---
+
+## 9.5 Doble integración Recurrente (suscripción + pagos del tenant)
+
+Bookly maneja **dos integraciones Recurrente independientes**:
+
+| | Suscripción (a Bookly) | Anticipos/Señas (al tenant) |
+|---|---|---|
+| Quién cobra | Bookly | El negocio (tenant) |
+| API key | `RECURRENTE_API_KEY` (secreto global de la plataforma) | `companies.recurrente_api_key_enc` (key del tenant, cifrada) |
+| Webhook | `/webhooks/recurrente` (firmado con secreto global) | `/webhooks/tenant-payments` (firmado con el secreto del tenant) |
+| Registro | `TenantBilling` | `payments` |
+
+> **Regla:** las dos integraciones NUNCA comparten API key ni webhook. Un pago de cita no debe afectar el estado de la suscripción y viceversa.
+
+---
+
+## 9.6 Anticipo / Seña de cita con confirmación automática
+
+### Configuración por servicio (`services`)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `requires_deposit` | boolean | Si el servicio exige anticipo para reservar |
+| `deposit_amount_qtz` | int | Monto fijo de la seña (centavos) |
+| `deposit_percentage` | int nullable | Alternativa: % del precio (0-100) |
+| `auto_confirm_on_payment` | boolean | `true` → el pago de la seña confirma la cita automáticamente |
+
+### Flujo de reserva con seña
+
+```
+1. El servicio exige anticipo (requires_deposit = true).
+2. El cliente elige servicio + slot y llega al paso de pago.
+3. El portal genera un checkout Recurrente con la key DEL TENANT.
+4. El cliente paga la seña (deposit_amount_qtz o %).
+5. Webhook /webhooks/tenant-payments valida el pago (server-to-server).
+6. Si auto_confirm_on_payment:
+   → cita pasa directo a confirmed (no espera al admin)
+   → se envía email definitivo con .ics
+7. Si NO auto_confirm: la cita queda pending esperando al admin
+   (el pago se registra pero no confirma).
+```
+
+### Reglas de negocio
+
+- **Pago recibido = confirmación automática** (cuando el servicio lo habilita): el compromiso financiero garantiza el slot y reduce no-shows.
+- Si la seña NO se paga en X minutos, la reserva pendiente se libera (el slot vuelve a estar disponible).
+- El pago se registra en `payments` con `gateway = recurrent`, `gatewayPaymentId`, y referencia a la cita.
+- Al cancelar la cita, se emite reembolso (regla de reembolso del tenant, configuración posterior).
+
+### Seguridad de la API key del tenant (write-only)
+
+- La key se guarda **cifrada** en `companies.recurrente_api_key_enc` con clave de cifrado de la plataforma (los Secrets de Cloudflare son por-worker; en multi-tenant la credencial vive en DB).
+- **Nunca** se devuelve en `GET` — es write-only. La UI muestra "✔ clave configurada" en vez del valor.
+- Input `type="password"` + nunca loguear ni exponer.
+- Webhook firmado con el secreto del propio tenant.
 
 ---
 
@@ -284,7 +343,7 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 1. Ingresa nombre, slug, email del dueño, plan inicial.
 2. Sistema crea `company` (trial), `user` admin dueño, y asigna plan.
 3. Se genera el `recurrente_subscription_id` para el futuro cobro.
-**Post:** empresa en `trial` (14 días), dueño puede loguear.
+**Post:** empresa en `trial` (30 días), dueño puede loguear.
 
 ### CU-02: Configurar servicio
 **Actor:** admin. **Precondición:** empresa activa.
@@ -331,6 +390,23 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 2. Al reservar: valida `count(citas del mes) < plan.monthlyAppointments`.
 **Post:** si se excede, rechaza con aviso de upgrade.
 
+### CU-09: Configurar pagos del negocio (API key del tenant)
+**Actor:** admin. **Precondición:** empresa activa.
+1. Ingresa su API key de Recurrente (input `type="password"`).
+2. Ingresa el secreto de webhook correspondiente.
+3. Sistema la cifra y guarda en `companies.recurrente_api_key_enc`.
+4. Activa la recepción de anticipos/señas.
+**Post:** los servicios que lo requieran pueden cobrar seña; la key nunca se expone en consultas.
+
+### CU-10: Reservar con seña (cliente + pago)
+**Actor:** cliente, sistema, recurrente (key del tenant).
+1. Cliente elige servicio que exige anticipo y un slot.
+2. Llega al paso de pago → checkout Recurrente (key del tenant).
+3. Paga la seña.
+4. Webhook `/webhooks/tenant-payments` valida y registra el pago.
+5. Si `auto_confirm_on_payment` → cita a `confirmed` + email `.ics`.
+**Post:** cita confirmada por pago, o pending según configuración del servicio.
+
 ---
 
 ## 12. Fuera de Alcance (fases posteriores)
@@ -355,6 +431,9 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 8. [ ] Recordatorios por email/WhatsApp (cron)
 9. [ ] RequireRole en rutas admin
 10. [ ] Panel superadmin en frontend
+11. [ ] Configuración de API key del tenant (cifrada, write-only) + doble integración Recurrente
+12. [ ] Anticipo/seña por servicio + confirmación automática al pagar (`requires_deposit`, `deposit_*`, `auto_confirm_on_payment`)
+13. [ ] Webhook `/webhooks/tenant-payments` separado del webhook de suscripción
 
 ---
 
@@ -381,6 +460,7 @@ Protegidas con middleware `requireRole(['superadmin'])`.
 | JD-A-010 | WARNING | Disponibilidad devuelve staff sin filtrar por asignación a servicio | `routes/public.ts:110-116` | deterministic |
 | JD-B-013 | WARNING | Servicio con `is_active=false` sigue reservable vía request manipulado | `routes/public.ts:134-136, 225-227` | deterministic |
 | JD-A-012/015/016 | WARNING | Contradicciones con `BOOKLY_TECHNICAL_ARCHITECTURE.md` (multi-sucursal, límites, roles owner/manager) — documento debe sincronizarse | docs | inferential |
+| JD-007 | WARNING | Doble integración Recurrente (suscripción vs pagos del tenant) requiere separación estricta de webhooks y claves; la key del tenant debe cifrarse en D1 (write-only) | `routes/webhooks.ts` + `db/schema.ts` `companies` | inferential |
 
 ### Estado de los hallazgos
 
