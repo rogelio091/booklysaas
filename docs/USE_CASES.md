@@ -462,6 +462,30 @@ Bookly maneja **dos integraciones Recurrente independientes**:
 | JD-A-012/015/016 | WARNING | Contradicciones con `BOOKLY_TECHNICAL_ARCHITECTURE.md` (multi-sucursal, límites, roles owner/manager) — documento debe sincronizarse | docs | inferential |
 | JD-007 | WARNING | Doble integración Recurrente (suscripción vs pagos del tenant) requiere separación estricta de webhooks y claves; la key del tenant debe cifrarse en D1 (write-only) | `routes/webhooks.ts` + `db/schema.ts` `companies` | inferential |
 
+### 14.1 Hallazgos de la revisión de pagos del tenant (Judgment Day, 2026-08-28)
+
+> Revisión adversarial enfocada en §9.5, §9.6, CU-09 y CU-10 (pagos del negocio, anticipo/seña).
+> **Estos hallazgos DEBEN cerrarse antes de implementar la capa de pagos.**
+
+| ID | Severidad | Hallazgo | Dónde aplicar | Evidencia |
+|---|---|---|---|---|
+| P-001 | CRITICAL | No existe utilidad de cifrado simétrico (AES) en el código; sin ella las API keys del tenant quedarían en texto plano | `workers/src` (nuevo crypto util) | deterministic |
+| P-002 | CRITICAL | Solo existe `/webhooks/recurrente` (secreto global); falta `/webhooks/tenant-payments` para aislar las 2 integraciones | `routes/webhooks.ts:47` | deterministic |
+| P-003 | CRITICAL | El webhook valida TODOS los eventos con el secreto global; webhooks del tenant con su propio secreto fallarían la verificación | `routes/webhooks.ts:50` | deterministic |
+| P-004 | CRITICAL | `charge.succeeded` confía en `metadata.company_id` sin validar contexto del tenant — payload forjado inyecta pagos para cualquier empresa | `routes/webhooks.ts:110-125` | deterministic |
+| P-005 | CRITICAL | Sin idempotencia en `gatewayPaymentId` — la entrega at-least-once de Recurrente duplica pagos y confirmaciones | `routes/webhooks.ts:112-125` + schema | deterministic |
+| P-006 | BLOCKER | `companies` sin `recurrente_api_key_enc` ni `recurrente_webhook_secret_enc` — CU-09 no implementable | `db/schema.ts` | deterministic |
+| P-007 | BLOCKER | `services` sin `requires_deposit`, `deposit_amount_qtz`, `deposit_percentage`, `auto_confirm_on_payment` — CU-10 no implementable | `db/schema.ts` | deterministic |
+| P-008 | BLOCKER | `payments` sin `appointment_id` — no se puede enlazar pago a cita para auto-confirmar o reembolsar | `db/schema.ts` `payments` | deterministic |
+| P-009 | BLOCKER | `POST /book` fija `status: 'confirmed'` — la cita con anticipo se confirma antes de pagar | `routes/public.ts:281` | deterministic |
+| P-010 | BLOCKER | No hay cron/expiración para liberar slots con anticipo no pagado tras X minutos | `wrangler.toml` + nuevo scheduled handler | deterministic |
+| P-011 | BLOCKER | No hay endpoint/API de reembolso; enum `refunded` existe pero sin código que lo transicione | `routes/admin.ts` + `payments` | deterministic |
+| P-012 | BLOCKER | `charge.succeeded` solo inserta el pago; nunca actualiza la cita, verifica `auto_confirm_on_payment` ni envía email | `routes/webhooks.ts` | deterministic |
+| P-013 | WARNING | `subscription_status` enum sin estado `locked` | `db/schema.ts` | deterministic |
+| P-014 | WARNING | El diseño de cifrado no especifica key versioning, rotación, rotación, AAD ligado al tenant ni cifrado autenticado | §9.6 | inferential |
+| P-015 | WARNING | Riesgo de exponer la key cifrada vía endpoint de detalle de empresa sin filtro de columnas | `routes/admin.ts` | inferential |
+
+---
 ### Estado de los hallazgos
 
 - Todos quedan `open` y se cierran conforme la implementación los aborde.
