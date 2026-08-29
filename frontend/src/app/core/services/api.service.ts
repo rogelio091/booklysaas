@@ -10,6 +10,9 @@ import type {
   CreateBookingDto,
   LoginRequestDto,
   AuthResponseDto,
+  ServiceResponseDto,
+  StaffResponseDto,
+  CreateAdminAppointmentDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -74,5 +77,22 @@ export class ApiService {
   // 6. Login de administración
   login(credentials: LoginRequestDto): Observable<ApiResponse<AuthResponseDto>> {
     return this.http.post<ApiResponse<AuthResponseDto>>(`${this.baseUrl}/auth/login`, credentials);
+  }
+
+  // 7. Catálogo de servicios (admin, autenticado)
+  getAdminServices(): Observable<ApiResponse<ServiceResponseDto[]>> {
+    return this.http.get<ApiResponse<ServiceResponseDto[]>>(`${this.baseUrl}/services`);
+  }
+
+  // 8. Staff del tenant (admin, autenticado)
+  getAdminStaff(): Observable<ApiResponse<StaffResponseDto[]>> {
+    return this.http.get<ApiResponse<StaffResponseDto[]>>(`${this.baseUrl}/staff`);
+  }
+
+  // 9. Crear cita desde el panel admin
+  createAppointment(
+    appointment: CreateAdminAppointmentDto,
+  ): Observable<ApiResponse<{ id: number }>> {
+    return this.http.post<ApiResponse<{ id: number }>>(`${this.baseUrl}/appointments`, appointment);
   }
 }

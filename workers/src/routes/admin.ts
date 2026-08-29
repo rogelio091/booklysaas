@@ -11,6 +11,7 @@ import {
   setWorkingHoursSchema,
   createBlockedSlotSchema,
   updateAppointmentStatusSchema,
+  createAdminAppointmentSchema,
   updateCompanySettingsSchema,
 } from '@bookly/contracts';
 import { authMiddleware } from '../middleware/auth';
@@ -24,6 +25,7 @@ import {
   blockedSlots,
   appointments,
   customers,
+  appointmentItems,
 } from '../db/schema';
 import { withTenant } from '../db/client';
 import type { AppContext } from '../types';
@@ -447,6 +449,89 @@ protectedAdmin.patch('/appointments/:id/status', zValidator('json', updateAppoin
   }
 
   return c.json({ success: true, data: updated });
+});
+
+protectedAdmin.post('/appointments', zValidator('json', createAdminAppointmentSchema), async (c) => {
+  const companyId = c.get('companyId')!;
+  const body = c.req.valid('json');
+  const db = c.get('db');
+
+  // El servicio debe existir y estar activo para este tenant.
+  const service = await db.query.services.findFirst({
+    where: and(
+      eq(services.companyId, companyId),
+      eq(services.id, body.serviceId),
+      eq(services.isActive, true),
+    ),
+  });
+
+  if (!service) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Servicio no encontrado' } }, 404);
+  }
+
+  const endAt = body.startAt + service.durationMinutes * 60 * 1000;
+
+  // 1. Buscar o crear cliente por companyId + phone.
+  let customer = await db.query.customers.findFirst({
+    where: and(eq(customers.companyId, companyId), eq(customers.phone, body.customerPhone)),
+  });
+
+  if (!customer) {
+    const [newCustomer] = await db
+      .insert(customers)
+      .values({
+        companyId,
+        name: body.customerName,
+        phone: body.customerPhone,
+        email: body.customerEmail ?? null,
+      })
+      .returning();
+    customer = newCustomer;
+  }
+
+  // 2. Insertar la cita.
+  const [appointment] = await db
+    .insert(appointments)
+    .values({
+      companyId,
+      customerId: customer.id,
+      staffId: body.staffId ?? null,
+      status: 'confirmed',
+      startAt: new Date(body.startAt),
+      endAt: new Date(endAt),
+      bufferMinutes: service.bufferAfterMinutes,
+      source: 'admin',
+      notes: body.notes ?? null,
+    })
+    .returning();
+
+  // 3. Insertar el snapshot inmutable del servicio.
+  await db.insert(appointmentItems).values({
+    companyId,
+    appointmentId: appointment.id,
+    serviceId: service.id,
+    serviceName: service.name,
+    priceQtz: service.priceQtz,
+    durationMinutes: service.durationMinutes,
+  });
+
+  return c.json(
+    {
+      success: true,
+      data: {
+        id: appointment.id,
+        companyId: appointment.companyId,
+        customerId: appointment.customerId,
+        staffId: appointment.staffId,
+        status: appointment.status,
+        startAt: appointment.startAt.getTime(),
+        endAt: appointment.endAt.getTime(),
+        source: appointment.source,
+        notes: appointment.notes,
+      },
+    },
+    201,
+  );
 });
 
 // --- 6. Configuración de la Empresa / Tenant (Tema, Marca, etc.) ---

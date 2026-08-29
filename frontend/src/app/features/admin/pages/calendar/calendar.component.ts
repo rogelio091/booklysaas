@@ -9,6 +9,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import type { AppointmentAdminDto } from '@bookly/contracts';
+import { AppointmentCreateComponent } from '../../components/appointment-create/appointment-create.component';
 
 type CalendarView = 'month' | 'week' | 'day';
 
@@ -100,7 +101,7 @@ function buildWeekDays(anchor: Date): Date[] {
 @Component({
   selector: 'app-calendar-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AppointmentCreateComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-shell">
@@ -109,7 +110,10 @@ function buildWeekDays(anchor: Date): Date[] {
           <h1>Calendario</h1>
           <p class="subtitle">Vista de citas por mes, semana o día</p>
         </div>
-        <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
+        <div class="header-actions">
+          <button (click)="showCreateModal.set(true)" class="btn-primary-glow">+ Nueva Cita</button>
+          <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
+        </div>
       </header>
 
       <!-- Toolbar -->
@@ -215,6 +219,12 @@ function buildWeekDays(anchor: Date): Date[] {
         }
       }
     </div>
+
+    <app-appointment-create
+      [open]="showCreateModal()"
+      (closed)="showCreateModal.set(false)"
+      (created)="onAppointmentCreated()"
+    />
   `,
   styles: `
     .page-shell {
@@ -236,6 +246,29 @@ function buildWeekDays(anchor: Date): Date[] {
       .subtitle {
         color: var(--color-text-muted);
         font-size: 0.875rem;
+      }
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .btn-primary-glow {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: 0.55rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      font-size: 0.825rem;
+      cursor: pointer;
+      box-shadow: var(--shadow-glow);
+      transition: all 0.15s;
+      white-space: nowrap;
+      &:hover {
+        background: var(--color-primary-hover);
+        transform: translateY(-1px);
       }
     }
     .btn-glass {
@@ -519,6 +552,9 @@ function buildWeekDays(anchor: Date): Date[] {
         flex-direction: column;
         align-items: stretch;
       }
+      .header-actions {
+        align-self: flex-start;
+      }
       .header-flex .btn-glass {
         align-self: flex-start;
       }
@@ -550,6 +586,7 @@ export class CalendarComponent implements OnInit {
 
   protected readonly appointments = signal<AppointmentAdminDto[]>([]);
   protected readonly loading = signal(true);
+  protected readonly showCreateModal = signal(false);
   protected readonly view = signal<CalendarView>('month');
   protected readonly anchor = signal<Date>(new Date());
 
@@ -654,5 +691,10 @@ export class CalendarComponent implements OnInit {
 
   appointmentsAtHour(h: number): AppointmentAdminDto[] {
     return this.dayAppointments().filter((a) => new Date(a.startAt).getHours() === h);
+  }
+
+  onAppointmentCreated() {
+    this.showCreateModal.set(false);
+    this.loadAppointments();
   }
 }

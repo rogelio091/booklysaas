@@ -134,6 +134,17 @@ export const updateAppointmentStatusSchema = z.object({
 });
 export type UpdateAppointmentStatusDto = z.infer<typeof updateAppointmentStatusSchema>;
 
+export const createAdminAppointmentSchema = z.object({
+  customerName: z.string().min(2, 'El nombre es requerido'),
+  customerPhone: z.string().min(8, 'Teléfono requerido'),
+  customerEmail: z.string().email('Email inválido').optional().nullable(),
+  serviceId: z.number().int().positive(),
+  staffId: z.number().int().positive().nullable().optional(),
+  startAt: z.number().int().positive(), // Epoch ms UTC
+  notes: z.string().optional().nullable(),
+});
+export type CreateAdminAppointmentDto = z.infer<typeof createAdminAppointmentSchema>;
+
 // ---------------------------------------------------------------------------
 // Configuración de Empresa (Settings)
 // ---------------------------------------------------------------------------

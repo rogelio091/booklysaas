@@ -2,6 +2,7 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import type { AppointmentAdminDto } from '@bookly/contracts';
+import { AppointmentCreateComponent } from '../../components/appointment-create/appointment-create.component';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -11,7 +12,7 @@ interface ApiResponse<T> {
 @Component({
   selector: 'app-appointments-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, AppointmentCreateComponent],
   template: `
     <div class="page-shell">
       <header class="header-flex">
@@ -19,7 +20,10 @@ interface ApiResponse<T> {
           <h1>Agenda de Citas</h1>
           <p class="subtitle">Gestiona y consulta las reservas en tiempo real</p>
         </div>
-        <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
+        <div class="header-actions">
+          <button (click)="showCreateModal.set(true)" class="btn-primary-glow">+ Nueva Cita</button>
+          <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
+        </div>
       </header>
 
       <!-- KPI Cards Row -->
@@ -85,6 +89,12 @@ interface ApiResponse<T> {
         </div>
       }
     </div>
+
+    <app-appointment-create
+      [open]="showCreateModal()"
+      (closed)="showCreateModal.set(false)"
+      (created)="onAppointmentCreated()"
+    />
   `,
   styles: [`
     .page-shell { display: flex; flex-direction: column; gap: 1.5rem; }
@@ -96,6 +106,29 @@ interface ApiResponse<T> {
       flex-wrap: wrap;
       h1 { font-size: 1.5rem; font-weight: 800; color: #ffffff; }
       .subtitle { color: var(--color-text-muted); font-size: 0.875rem; }
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .btn-primary-glow {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: 0.55rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      font-size: 0.825rem;
+      cursor: pointer;
+      box-shadow: var(--shadow-glow);
+      transition: all 0.15s;
+      white-space: nowrap;
+      &:hover {
+        background: var(--color-primary-hover);
+        transform: translateY(-1px);
+      }
     }
     .btn-glass {
       padding: 0.55rem 1rem;
@@ -170,6 +203,7 @@ interface ApiResponse<T> {
     /* ===== RESPONSIVE ===== */
     @media (max-width: 767px) {
       .header-flex { flex-direction: column; align-items: stretch; }
+      .header-actions { align-self: flex-start; }
       .header-flex .btn-glass { align-self: flex-start; }
       .kpi-grid { grid-template-columns: 1fr; gap: 0.75rem; }
       .kpi-card { padding: 0.9rem 1rem; }
@@ -212,6 +246,7 @@ export class AppointmentsComponent implements OnInit {
 
   protected readonly appointments = signal<AppointmentAdminDto[]>([]);
   protected readonly loading = signal(true);
+  protected readonly showCreateModal = signal(false);
 
   ngOnInit() {
     this.loadAppointments();
@@ -242,5 +277,10 @@ export class AppointmentsComponent implements OnInit {
         this.loadAppointments();
       },
     });
+  }
+
+  onAppointmentCreated() {
+    this.showCreateModal.set(false);
+    this.loadAppointments();
   }
 }
