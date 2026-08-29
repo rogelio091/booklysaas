@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import type { AppointmentAdminDto } from '@bookly/contracts';
@@ -20,8 +27,18 @@ interface MonthDay {
 }
 
 const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
 ];
 const WEEKDAY_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const WEEKDAY_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -121,7 +138,7 @@ function buildWeekDays(anchor: Date): Date[] {
                   <div class="weekday-cell">{{ w }}</div>
                 }
               </div>
-              @for (week of monthWeeks(); track week[0].dayKey) {
+              @for (week of monthWeeks(); track $index) {
                 <div class="week-row">
                   @for (day of week; track day.dayKey) {
                     <button
@@ -145,7 +162,7 @@ function buildWeekDays(anchor: Date): Date[] {
           @case ('week') {
             <div class="week-scroll">
               <div class="week-grid">
-                @for (day of weekDays(); track dayKey(day)) {
+                @for (day of weekDays(); track $index) {
                   <div class="week-col" [class.today]="isToday(day)">
                     <div class="week-col-header">
                       <span class="week-name">{{ weekdayShort(day) }}</span>
@@ -154,7 +171,7 @@ function buildWeekDays(anchor: Date): Date[] {
                     <div class="week-col-body">
                       @for (a of appointmentsOn(dayKey(day)); track a.id) {
                         <div class="apt-chip" [attr.data-status]="a.status">
-                          <strong>{{ a.startAt | date:'shortTime' }}</strong>
+                          <strong>{{ a.startAt | date: 'shortTime' }}</strong>
                           <span>{{ a.customerName }}</span>
                         </div>
                       } @empty {
@@ -179,7 +196,10 @@ function buildWeekDays(anchor: Date): Date[] {
                         <div class="hour-body">
                           @for (a of appointmentsAtHour(h); track a.id) {
                             <div class="apt-chip wide" [attr.data-status]="a.status">
-                              <strong>{{ a.startAt | date:'shortTime' }} – {{ a.endAt | date:'shortTime' }}</strong>
+                              <strong
+                                >{{ a.startAt | date: 'shortTime' }} –
+                                {{ a.endAt | date: 'shortTime' }}</strong
+                              >
                               <span>{{ a.customerName }}</span>
                               <small>{{ a.staffName || 'Cualquiera disponible' }}</small>
                             </div>
@@ -197,15 +217,26 @@ function buildWeekDays(anchor: Date): Date[] {
     </div>
   `,
   styles: `
-    .page-shell { display: flex; flex-direction: column; gap: 1.5rem; }
+    .page-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
     .header-flex {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
-      h1 { font-size: 1.5rem; font-weight: 800; color: #ffffff; }
-      .subtitle { color: var(--color-text-muted); font-size: 0.875rem; }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #ffffff;
+      }
+      .subtitle {
+        color: var(--color-text-muted);
+        font-size: 0.875rem;
+      }
     }
     .btn-glass {
       padding: 0.55rem 1rem;
@@ -218,7 +249,10 @@ function buildWeekDays(anchor: Date): Date[] {
       font-size: 0.825rem;
       transition: all 0.15s;
       white-space: nowrap;
-      &:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--color-border-highlight); }
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--color-border-highlight);
+      }
     }
 
     /* ===== TOOLBAR ===== */
@@ -246,8 +280,14 @@ function buildWeekDays(anchor: Date): Date[] {
         border-radius: var(--radius-sm);
         cursor: pointer;
         transition: all 0.15s;
-        &:hover { color: #ffffff; }
-        &.active { background: var(--color-primary); color: #ffffff; box-shadow: var(--shadow-glow); }
+        &:hover {
+          color: #ffffff;
+        }
+        &.active {
+          background: var(--color-primary);
+          color: #ffffff;
+          box-shadow: var(--shadow-glow);
+        }
       }
     }
     .nav-group {
@@ -255,7 +295,8 @@ function buildWeekDays(anchor: Date): Date[] {
       align-items: center;
       gap: 0.4rem;
     }
-    .nav-btn, .btn-today {
+    .nav-btn,
+    .btn-today {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--color-border);
       color: var(--color-text);
@@ -264,7 +305,9 @@ function buildWeekDays(anchor: Date): Date[] {
       font-weight: 700;
       padding: 0.4rem 0.7rem;
       transition: all 0.15s;
-      &:hover { background: rgba(255, 255, 255, 0.1); }
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
     }
     .period-label {
       min-width: 150px;
@@ -281,11 +324,18 @@ function buildWeekDays(anchor: Date): Date[] {
       box-shadow: var(--shadow-card);
       overflow: hidden;
     }
-    .state-box { text-align: center; padding: 3rem; color: var(--color-text-muted); }
+    .state-box {
+      text-align: center;
+      padding: 3rem;
+      color: var(--color-text-muted);
+    }
 
     /* ===== MES ===== */
-    .month-card { padding: 0.75rem; }
-    .weekday-row, .week-row {
+    .month-card {
+      padding: 0.75rem;
+    }
+    .weekday-row,
+    .week-row {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
     }
@@ -313,12 +363,25 @@ function buildWeekDays(anchor: Date): Date[] {
       padding-top: 0.4rem;
       transition: all 0.15s;
       margin: 1px;
-      &:hover { background: rgba(255, 255, 255, 0.06); border-color: var(--color-border-highlight); }
-      &.outside { opacity: 0.35; }
-      &.today { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
-      &.has-apt { background: var(--color-primary-light); }
+      &:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: var(--color-border-highlight);
+      }
+      &.outside {
+        opacity: 0.35;
+      }
+      &.today {
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 1px var(--color-accent);
+      }
+      &.has-apt {
+        background: var(--color-primary-light);
+      }
     }
-    .day-num { font-size: 0.9rem; font-weight: 700; }
+    .day-num {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
     .day-count {
       font-size: 0.65rem;
       font-weight: 800;
@@ -330,7 +393,9 @@ function buildWeekDays(anchor: Date): Date[] {
     }
 
     /* ===== SEMANA ===== */
-    .week-scroll { overflow-x: auto; }
+    .week-scroll {
+      overflow-x: auto;
+    }
     .week-grid {
       display: grid;
       grid-template-columns: repeat(7, minmax(120px, 1fr));
@@ -342,7 +407,10 @@ function buildWeekDays(anchor: Date): Date[] {
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       overflow: hidden;
-      &.today .week-col-header { background: var(--color-primary-light); border-bottom-color: var(--color-primary); }
+      &.today .week-col-header {
+        background: var(--color-primary-light);
+        border-bottom-color: var(--color-primary);
+      }
     }
     .week-col-header {
       padding: 0.6rem;
@@ -350,8 +418,18 @@ function buildWeekDays(anchor: Date): Date[] {
       background: rgba(0, 0, 0, 0.3);
       border-bottom: 1px solid var(--color-border);
     }
-    .week-name { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--color-text-muted); }
-    .week-date { font-size: 1.15rem; font-weight: 800; color: #ffffff; }
+    .week-name {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+    .week-date {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
     .week-col-body {
       padding: 0.5rem;
       display: flex;
@@ -359,7 +437,12 @@ function buildWeekDays(anchor: Date): Date[] {
       gap: 0.4rem;
       min-height: 120px;
     }
-    .no-apt { text-align: center; color: var(--color-text-dim); font-size: 0.75rem; padding: 0.75rem 0; }
+    .no-apt {
+      text-align: center;
+      color: var(--color-text-dim);
+      font-size: 0.75rem;
+      padding: 0.75rem 0;
+    }
 
     .apt-chip {
       display: flex;
@@ -371,18 +454,42 @@ function buildWeekDays(anchor: Date): Date[] {
       border-left: 3px solid var(--color-primary);
       border-radius: var(--radius-sm);
       font-size: 0.75rem;
-      strong { color: var(--color-primary); font-size: 0.7rem; }
-      span { color: var(--color-text); }
-      small { color: var(--color-text-muted); font-size: 0.68rem; }
-      &.wide strong { color: var(--color-text); font-size: 0.75rem; }
-      &[data-status='completed'] { border-left-color: var(--color-primary); }
-      &[data-status='canceled'], &[data-status='no_show'] { border-left-color: var(--color-danger); }
-      &[data-status='pending'] { border-left-color: var(--color-warning); }
+      strong {
+        color: var(--color-primary);
+        font-size: 0.7rem;
+      }
+      span {
+        color: var(--color-text);
+      }
+      small {
+        color: var(--color-text-muted);
+        font-size: 0.68rem;
+      }
+      &.wide strong {
+        color: var(--color-text);
+        font-size: 0.75rem;
+      }
+      &[data-status='completed'] {
+        border-left-color: var(--color-primary);
+      }
+      &[data-status='canceled'],
+      &[data-status='no_show'] {
+        border-left-color: var(--color-danger);
+      }
+      &[data-status='pending'] {
+        border-left-color: var(--color-warning);
+      }
     }
 
     /* ===== DÍA ===== */
-    .day-card { padding: 1rem; }
-    .day-timeline { display: flex; flex-direction: column; gap: 0.75rem; }
+    .day-card {
+      padding: 1rem;
+    }
+    .day-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
     .hour-row {
       display: flex;
       gap: 0.75rem;
@@ -408,14 +515,33 @@ function buildWeekDays(anchor: Date): Date[] {
 
     /* ===== RESPONSIVE ===== */
     @media (max-width: 767px) {
-      .header-flex { flex-direction: column; align-items: stretch; }
-      .header-flex .btn-glass { align-self: flex-start; }
-      .toolbar { flex-direction: column; align-items: stretch; }
-      .nav-group { justify-content: space-between; }
-      .period-label { flex: 1; min-width: 0; }
-      .month-day { min-height: 46px; }
-      .day-num { font-size: 0.8rem; }
-      .hour-label { width: 44px; }
+      .header-flex {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .header-flex .btn-glass {
+        align-self: flex-start;
+      }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .nav-group {
+        justify-content: space-between;
+      }
+      .period-label {
+        flex: 1;
+        min-width: 0;
+      }
+      .month-day {
+        min-height: 46px;
+      }
+      .day-num {
+        font-size: 0.8rem;
+      }
+      .hour-label {
+        width: 44px;
+      }
     }
   `,
 })
@@ -430,7 +556,9 @@ export class CalendarComponent implements OnInit {
   protected readonly weekdayNames = WEEKDAY_SHORT;
   protected readonly hours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
 
-  protected readonly monthWeeks = computed(() => buildMonthGrid(this.anchor(), this.appointments()));
+  protected readonly monthWeeks = computed(() =>
+    buildMonthGrid(this.anchor(), this.appointments()),
+  );
   protected readonly weekDays = computed(() => buildWeekDays(this.anchor()));
   protected readonly dayAppointments = computed(() => this.appointmentsOn(toDayKey(this.anchor())));
 

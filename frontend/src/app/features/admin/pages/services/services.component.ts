@@ -35,7 +35,7 @@ interface ApiResponse<T> {
               </div>
               <p class="desc-text">{{ service.description || 'Sin descripción detallada' }}</p>
               <div class="card-foot">
-                <span class="meta-tag">⏱ {{ service.durationMinutes }} min (+{{ service.bufferAfterMinutes }} min buffer)</span>
+                <span class="meta-tag">⏱ {{ service.durationMinutes }} min</span>
                 <span class="status-indicator" [class.active]="service.isActive">
                   {{ service.isActive ? '● Activo' : '○ Inactivo' }}
                 </span>
@@ -54,28 +54,46 @@ interface ApiResponse<T> {
             <form (ngSubmit)="saveService()" class="service-form">
               <div class="form-group">
                 <label>Nombre del servicio *</label>
-                <input [(ngModel)]="form.name" name="name" required placeholder="Ej. Limpieza Dental Profunda" />
+                <input
+                  [(ngModel)]="form.name"
+                  name="name"
+                  required
+                  placeholder="Ej. Limpieza Dental Profunda"
+                />
               </div>
 
               <div class="form-group">
                 <label>Descripción</label>
-                <textarea [(ngModel)]="form.description" name="description" rows="2" placeholder="Detalles del tratamiento..."></textarea>
+                <textarea
+                  [(ngModel)]="form.description"
+                  name="description"
+                  rows="2"
+                  placeholder="Detalles del tratamiento..."
+                ></textarea>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
                   <label>Duración (min) *</label>
-                  <input type="number" [(ngModel)]="form.durationMinutes" name="duration" required min="5" />
+                  <input
+                    type="number"
+                    [(ngModel)]="form.durationMinutes"
+                    name="duration"
+                    required
+                    min="5"
+                  />
                 </div>
                 <div class="form-group">
-                  <label>Buffer posterior (min)</label>
-                  <input type="number" [(ngModel)]="form.bufferAfterMinutes" name="buffer" min="0" />
+                  <label>Precio (Quetzales) *</label>
+                  <input
+                    type="number"
+                    [(ngModel)]="priceInput"
+                    name="price"
+                    required
+                    min="0"
+                    step="0.5"
+                  />
                 </div>
-              </div>
-
-              <div class="form-group">
-                <label>Precio (Quetzales) *</label>
-                <input type="number" [(ngModel)]="priceInput" name="price" required min="0" step="0.5" />
               </div>
 
               <div class="modal-actions">
@@ -88,141 +106,229 @@ interface ApiResponse<T> {
       }
     </div>
   `,
-  styles: [`
-    .page-shell { display: flex; flex-direction: column; gap: 1.5rem; }
-    .header-flex { display: flex; justify-content: space-between; align-items: center; h1 { font-size: 1.5rem; font-weight: 800; color: #fff; } .subtitle { color: var(--color-text-muted); font-size: 0.875rem; } }
-    .btn-primary-glow {
-      background: var(--color-primary);
-      color: white;
-      border: none;
-      padding: 0.65rem 1.35rem;
-      border-radius: var(--radius-md);
-      font-weight: 700;
-      font-size: 0.85rem;
-      cursor: pointer;
-      box-shadow: var(--shadow-glow);
-      transition: all 0.15s;
-      &:hover { background: var(--color-primary-hover); transform: translateY(-1px); }
-    }
-    .services-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1.25rem;
-    }
-    .service-dark-card {
-      background: var(--color-surface-glass);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      padding: 1.35rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.85rem;
-      box-shadow: var(--shadow-card);
-      transition: all 0.2s;
-      &:hover { border-color: var(--color-border-highlight); transform: translateY(-2px); }
-    }
-    .card-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      h3 { font-size: 1.1rem; font-weight: 700; color: #fff; }
-      .price-badge { font-weight: 800; font-size: 1.05rem; color: var(--color-primary); }
-    }
-    .desc-text { color: var(--color-text-muted); font-size: 0.825rem; flex: 1; line-height: 1.4; }
-    .card-foot {
-      border-top: 1px solid var(--color-border);
-      padding-top: 0.85rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.75rem;
-    }
-    .meta-tag { color: var(--color-text-dim); }
-    .status-indicator {
-      font-weight: 700;
-      color: var(--color-danger);
-      &.active { color: var(--color-success); }
-    }
-    .dark-modal-backdrop {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      padding: 1rem;
-    }
-    .dark-modal-card {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border-highlight);
-      padding: 2rem;
-      border-radius: var(--radius-lg);
-      width: 100%;
-      max-width: 480px;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: var(--shadow-card);
-      h2 { font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 1.25rem; }
-    }
-    .service-form {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      label { font-size: 0.8rem; font-weight: 600; color: var(--color-text-muted); }
-      input, textarea {
-        padding: 0.75rem 0.9rem;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1.5px solid var(--color-border);
-        border-radius: var(--radius-sm);
-        color: white;
-        font-family: inherit;
-        font-size: 0.875rem;
-        outline: none;
-        &:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-glow); }
+  styles: [
+    `
+      .page-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
       }
-    }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      margin-top: 1rem;
-    }    .btn-cancel {
-      background: transparent;
-      border: 1px solid var(--color-border);
-      color: var(--color-text);
-      padding: 0.65rem 1.25rem;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      font-weight: 600;
-      &:hover { background: rgba(255, 255, 255, 0.05); }
-    }
-    .state-box, .empty-state { text-align: center; padding: 3rem; color: var(--color-text-muted); }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 767px) {
-          .header-flex { flex-direction: column; align-items: stretch; gap: 0.75rem; }
-          .header-flex .btn-primary-glow { align-self: flex-start; }
-          .services-grid { grid-template-columns: 1fr; }
-          .dark-modal-backdrop { padding: 0; align-items: flex-end; }
-          .dark-modal-card {
-            max-width: 100%;
-            max-height: 92vh;
-            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-            border-bottom: none;
-          }
-          .form-row { grid-template-columns: 1fr; }
-          .modal-actions { flex-direction: column-reverse; }
-          .modal-actions .btn-primary-glow, .modal-actions .btn-cancel { width: 100%; }
+      .header-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        h1 {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: #fff;
         }
-  `]
+        .subtitle {
+          color: var(--color-text-muted);
+          font-size: 0.875rem;
+        }
+      }
+      .btn-primary-glow {
+        background: var(--color-primary);
+        color: white;
+        border: none;
+        padding: 0.65rem 1.35rem;
+        border-radius: var(--radius-md);
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        box-shadow: var(--shadow-glow);
+        transition: all 0.15s;
+        &:hover {
+          background: var(--color-primary-hover);
+          transform: translateY(-1px);
+        }
+      }
+      .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.25rem;
+      }
+      .service-dark-card {
+        background: var(--color-surface-glass);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        padding: 1.35rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+        box-shadow: var(--shadow-card);
+        transition: all 0.2s;
+        &:hover {
+          border-color: var(--color-border-highlight);
+          transform: translateY(-2px);
+        }
+      }
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        h3 {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #fff;
+        }
+        .price-badge {
+          font-weight: 800;
+          font-size: 1.05rem;
+          color: var(--color-primary);
+        }
+      }
+      .desc-text {
+        color: var(--color-text-muted);
+        font-size: 0.825rem;
+        flex: 1;
+        line-height: 1.4;
+      }
+      .card-foot {
+        border-top: 1px solid var(--color-border);
+        padding-top: 0.85rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+      }
+      .meta-tag {
+        color: var(--color-text-dim);
+      }
+      .status-indicator {
+        font-weight: 700;
+        color: var(--color-danger);
+        &.active {
+          color: var(--color-success);
+        }
+      }
+      .dark-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+        padding: 1rem;
+      }
+      .dark-modal-card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border-highlight);
+        padding: 2rem;
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 480px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: var(--shadow-card);
+        h2 {
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #fff;
+          margin-bottom: 1.25rem;
+        }
+      }
+      .service-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--color-text-muted);
+        }
+        input,
+        textarea {
+          padding: 0.75rem 0.9rem;
+          background: rgba(0, 0, 0, 0.3);
+          border: 1.5px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          color: white;
+          font-family: inherit;
+          font-size: 0.875rem;
+          outline: none;
+          &:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px var(--color-primary-glow);
+          }
+        }
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        margin-top: 1rem;
+      }
+      .btn-cancel {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+        padding: 0.65rem 1.25rem;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        font-weight: 600;
+        &:hover {
+          background: rgba(255, 255, 255, 0.05);
+        }
+      }
+      .state-box,
+      .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: var(--color-text-muted);
+      }
+
+      /* ===== RESPONSIVE ===== */
+      @media (max-width: 767px) {
+        .header-flex {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 0.75rem;
+        }
+        .header-flex .btn-primary-glow {
+          align-self: flex-start;
+        }
+        .services-grid {
+          grid-template-columns: 1fr;
+        }
+        .dark-modal-backdrop {
+          padding: 0;
+          align-items: flex-end;
+        }
+        .dark-modal-card {
+          max-width: 100%;
+          max-height: 92vh;
+          border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+          border-bottom: none;
+        }
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+        .modal-actions {
+          flex-direction: column-reverse;
+        }
+        .modal-actions .btn-primary-glow,
+        .modal-actions .btn-cancel {
+          width: 100%;
+        }
+      }
+    `,
+  ],
 })
 export class ServicesComponent implements OnInit {
   private readonly http = inject(HttpClient);
@@ -257,7 +363,7 @@ export class ServicesComponent implements OnInit {
       },
       error: () => {
         this.loading.set(false);
-      }
+      },
     });
   }
 
@@ -275,7 +381,7 @@ export class ServicesComponent implements OnInit {
       next: () => {
         this.closeModal();
         this.loadServices();
-      }
+      },
     });
   }
 }
