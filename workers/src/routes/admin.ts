@@ -14,6 +14,7 @@ import {
   updateCompanySettingsSchema,
 } from '@bookly/contracts';
 import { authMiddleware } from '../middleware/auth';
+import { verifyPassword } from '../utils/password';
 import {
   users,
   companies,
@@ -41,6 +42,15 @@ adminRoutes.post('/auth/login', zValidator('json', loginRequestSchema), async (c
   });
 
   if (!user) {
+    return c.json(
+      { success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' } },
+      401,
+    );
+  }
+
+  // Anti-enumeración: mismo error para usuario inexistente y password incorrecta.
+  const passwordValid = await verifyPassword(password, user.passwordHash);
+  if (!passwordValid) {
     return c.json(
       { success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Credenciales inválidas' } },
       401,

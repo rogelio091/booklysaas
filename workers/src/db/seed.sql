@@ -32,8 +32,8 @@ ON CONFLICT (id) DO UPDATE SET
 -- 3. Usuarios (Admin & Staff)
 INSERT INTO users (id, company_id, name, email, password_hash, role, phone, is_active)
 VALUES 
-  (1, 1, 'Dr. Carlos Morales', 'admin@dentalmorales.com', 'password123', 'admin', '+502 5555-1111', 1),
-  (2, 1, 'Dra. Sofía Méndez', 'sofia@dentalmorales.com', 'password123', 'staff', '+502 5555-2222', 1)
+  (1, 1, 'Dr. Carlos Morales', 'admin@dentalmorales.com', 'pbkdf2$100000$84199cf99c6f2949b5ec1c1c0f36aae2$f95371ca6d27db9f31df2ebb77c9ce0e3667670db5bfa4901f67ce631e27013b', 'admin', '+502 5555-1111', 1),
+  (2, 1, 'Dra. Sofía Méndez', 'sofia@dentalmorales.com', 'pbkdf2$100000$84199cf99c6f2949b5ec1c1c0f36aae2$f95371ca6d27db9f31df2ebb77c9ce0e3667670db5bfa4901f67ce631e27013b', 'staff', '+502 5555-2222', 1)
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Servicios
