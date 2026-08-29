@@ -4,16 +4,17 @@ import { Router } from '@angular/router';
 import type { LoginRequestDto } from '@bookly/contracts';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthStore } from '../../../core/auth/auth.store';
+import { BrandLogoComponent } from '../../../core/brand/brand-logo.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, BrandLogoComponent],
   template: `
     <div class="login-shell">
       <div class="login-card">
         <div class="brand">
-          <span class="logo-icon">⚡</span>
+          <app-brand-logo class="brand-mark" />
           <h1>Bookly</h1>
           <p class="tagline">Panel administrativo</p>
         </div>
@@ -89,9 +90,10 @@ import { AuthStore } from '../../../core/auth/auth.store';
       text-align: center;
       margin-bottom: 2rem;
     }
-    .logo-icon {
-      font-size: 2rem;
-      color: var(--color-primary);
+    .brand-mark {
+      display: inline-block;
+      margin-bottom: 0.5rem;
+      filter: drop-shadow(0 0 18px var(--color-primary-glow));
     }
     .brand h1 {
       font-size: 1.75rem;
