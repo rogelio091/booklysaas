@@ -32,6 +32,10 @@ import { ThemeService, BooklyTheme } from '../../../core/theme/theme.service';
             <span class="icon">🛎</span>
             <span>Servicios</span>
           </a>
+          <a routerLink="/app/calendar" routerLinkActive="active" class="nav-item" (click)="drawerOpen.set(false)">
+            <span class="icon">🗓</span>
+            <span>Calendario</span>
+          </a>
         </nav>
 
         <div class="user-card-footer">

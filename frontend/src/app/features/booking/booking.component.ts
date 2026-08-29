@@ -12,11 +12,63 @@ import type {
   CreateBookingDto,
 } from '@bookly/contracts';
 
-interface CalendarDay {
+interface ClientCalendarDay {
   dateStr: string; // YYYY-MM-DD
   dayNumber: number;
-  dayName: string;
+  isToday: boolean;
   isPast: boolean;
+}
+
+const CLIENT_MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+const CLIENT_WEEKDAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function toDateStrInTz(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function shiftMonth(c: { year: number; month: number }, delta: number): { year: number; month: number } {
+  const d = new Date(c.year, c.month + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() };
+}
+
+function buildClientCalendar(cursor: { year: number; month: number }, todayStr: string): (ClientCalendarDay | null)[] {
+  const first = new Date(cursor.year, cursor.month, 1);
+  const startWeekday = first.getDay();
+  const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate();
+  const cells: (ClientCalendarDay | null)[] = [];
+  for (let i = 0; i < startWeekday; i++) {
+    cells.push(null);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${cursor.year}-${pad2(cursor.month + 1)}-${pad2(day)}`;
+    cells.push({
+      dateStr,
+      dayNumber: day,
+      isToday: dateStr === todayStr,
+      isPast: dateStr < todayStr,
+    });
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+  while (cells.length < 42) {
+    cells.push(null);
+  }
+  return cells;
 }
 
 @Component({
@@ -145,19 +197,35 @@ interface CalendarDay {
               <h2 class="section-title">Elige Fecha y Horario</h2>
               <p class="section-desc">Disponibilidad calculada en tiempo real por el Slot Engine</p>
 
-              <!-- Selector de Días -->
-              <div class="days-scroll-container">
-                @for (day of calendarDays(); track day.dateStr) {
-                  <button
-                    type="button"
-                    class="day-pill"
-                    [class.active]="selectedDate() === day.dateStr"
-                    (click)="selectDate(day.dateStr)"
-                  >
-                    <span class="day-name">{{ day.dayName }}</span>
-                    <span class="day-num">{{ day.dayNumber }}</span>
-                  </button>
-                }
+              <!-- Calendario Mensual -->
+              <div class="calendar-box">
+                <div class="calendar-header">
+                  <button type="button" class="cal-nav" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
+                  <span class="calendar-month">{{ monthLabel() }}</span>
+                  <button type="button" class="cal-nav" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+                </div>
+                <div class="calendar-weekdays">
+                  @for (w of weekdayHeader; track w) {
+                    <span class="cal-weekday">{{ w }}</span>
+                  }
+                </div>
+                <div class="calendar-grid">
+                  @for (cell of calendarCells(); track $index) {
+                    @if (cell) {
+                      <button
+                        type="button"
+                        class="calendar-day"
+                        [class.selected]="selectedDate() === cell.dateStr"
+                        [class.today]="cell.isToday"
+                        [class.is-past]="cell.isPast"
+                        [disabled]="cell.isPast"
+                        (click)="selectDate(cell.dateStr)"
+                      >{{ cell.dayNumber }}</button>
+                    } @else {
+                      <span class="calendar-day empty"></span>
+                    }
+                  }
+                </div>
               </div>
 
               <!-- Lista de Slots -->
@@ -436,35 +504,79 @@ interface CalendarDay {
       justify-content: center;
       font-size: 1.25rem;
     }
-    .days-scroll-container {
-      display: flex;
-      gap: 0.5rem;
-      overflow-x: auto;
-      padding-bottom: 0.75rem;
-      margin-bottom: 1.25rem;
-    }
-    .day-pill {
-      min-width: 60px;
-      padding: 0.6rem 0.4rem;
-      background: rgba(255, 255, 255, 0.03);
+    .calendar-box {
+      background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      color: var(--color-text);
+      padding: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    .calendar-header {
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
       align-items: center;
-      gap: 0.2rem;
+      margin-bottom: 0.75rem;
+    }
+    .cal-nav {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      transition: all 0.15s;
+      &:hover { background: rgba(255, 255, 255, 0.1); }
+    }
+    .calendar-month {
+      font-weight: 800;
+      color: #ffffff;
+      font-size: 0.95rem;
+    }
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 0.3rem;
+    }
+    .cal-weekday {
+      text-align: center;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      padding: 0.3rem 0;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.25rem;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--color-text);
+      font-size: 0.85rem;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
-      &.active {
+      &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); border-color: var(--color-border-highlight); }
+      &.today { border-color: var(--color-accent); }
+      &.selected {
         background: var(--color-primary);
         color: white;
         border-color: var(--color-primary);
         box-shadow: var(--shadow-glow);
       }
+      &.is-past { opacity: 0.3; cursor: not-allowed; }
+      &.empty { background: transparent; border: none; pointer-events: none; }
     }
-    .day-name { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; color: var(--color-text-muted); }
-    .day-num { font-size: 1rem; font-weight: 800; }
     .slot-label { font-size: 0.825rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem; display: block; }
     .slots-grid {
       display: grid;
@@ -603,6 +715,11 @@ export class BookingComponent implements OnInit {
   protected readonly selectedStaff = signal<PublicStaffDto | null>(null);
   protected readonly selectedDate = signal<string>('');
   protected readonly selectedSlot = signal<SlotDto | null>(null);
+  protected readonly timezone = signal<string>('UTC');
+  protected readonly monthCursor = signal<{ year: number; month: number }>({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+  });
 
   protected readonly loading = signal(true);
   protected readonly loadingSlots = signal(false);
@@ -613,23 +730,20 @@ export class BookingComponent implements OnInit {
   protected customerPhone = '';
   protected customerEmail = '';
 
-  protected readonly calendarDays = computed(() => {
-    const days: CalendarDay[] = [];
-    const today = new Date();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-      const dateStr = d.toISOString().split('T')[0];
-      days.push({
-        dateStr,
-        dayNumber: d.getDate(),
-        dayName: dayNames[d.getDay()],
-        isPast: false,
-      });
-    }
-    return days;
+  protected readonly weekdayHeader = CLIENT_WEEKDAYS;
+
+  protected readonly todayStr = computed(() =>
+    toDateStrInTz(new Date(), this.timezone()),
+  );
+
+  protected readonly monthLabel = computed(() => {
+    const c = this.monthCursor();
+    return `${CLIENT_MONTH_NAMES[c.month]} ${c.year}`;
   });
+
+  protected readonly calendarCells = computed(() =>
+    buildClientCalendar(this.monthCursor(), this.todayStr()),
+  );
 
   protected readonly canProceed = computed(() => {
     switch (this.currentStep()) {
@@ -654,6 +768,11 @@ export class BookingComponent implements OnInit {
         if (res.success && res.data) {
           this.company.set(res.data);
           this.themeService.initFromCompany(res.data.theme);
+          this.timezone.set(res.data.timezone);
+          const todayStr = toDateStrInTz(new Date(), res.data.timezone);
+          const [year, month] = todayStr.split('-').map((n) => Number(n));
+          this.monthCursor.set({ year, month: month - 1 });
+          this.selectedDate.set(todayStr);
           this.loadServicesAndStaff(slug);
         } else {
           this.loading.set(false);
@@ -687,11 +806,6 @@ export class BookingComponent implements OnInit {
       }
     });
 
-    // Default select today
-    const firstDay = this.calendarDays()[0];
-    if (firstDay) {
-      this.selectedDate.set(firstDay.dateStr);
-    }
   }
 
   changeTheme(theme: BooklyTheme) {
@@ -704,6 +818,14 @@ export class BookingComponent implements OnInit {
 
   selectStaff(staff: PublicStaffDto | null) {
     this.selectedStaff.set(staff);
+  }
+
+  prevMonth() {
+    this.monthCursor.update((c) => shiftMonth(c, -1));
+  }
+
+  nextMonth() {
+    this.monthCursor.update((c) => shiftMonth(c, 1));
   }
 
   selectDate(dateStr: string) {

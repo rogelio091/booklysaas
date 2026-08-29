@@ -8,6 +8,8 @@ import type {
   PublicStaffDto,
   SlotDto,
   CreateBookingDto,
+  LoginRequestDto,
+  AuthResponseDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -67,5 +69,10 @@ export class ApiService {
     booking: CreateBookingDto,
   ): Observable<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>> {
     return this.http.post<ApiResponse<{ appointmentId: number; status: string; customerName: string; serviceName: string }>>(`${this.baseUrl}/public/${slug}/book`, booking);
+  }
+
+  // 6. Login de administración
+  login(credentials: LoginRequestDto): Observable<ApiResponse<AuthResponseDto>> {
+    return this.http.post<ApiResponse<AuthResponseDto>>(`${this.baseUrl}/auth/login`, credentials);
   }
 }
