@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import type { AppointmentAdminDto } from '@bookly/contracts';
 import { AppointmentCreateComponent } from '../../components/appointment-create/appointment-create.component';
+import { AppointmentDetailComponent } from '../../components/appointment-detail/appointment-detail.component';
 
 type CalendarView = 'month' | 'week' | 'day';
 
@@ -101,7 +102,7 @@ function buildWeekDays(anchor: Date): Date[] {
 @Component({
   selector: 'app-calendar-page',
   standalone: true,
-  imports: [CommonModule, AppointmentCreateComponent],
+  imports: [CommonModule, AppointmentCreateComponent, AppointmentDetailComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-shell">
@@ -174,7 +175,11 @@ function buildWeekDays(anchor: Date): Date[] {
                     </div>
                     <div class="week-col-body">
                       @for (a of appointmentsOn(dayKey(day)); track a.id) {
-                        <div class="apt-chip" [attr.data-status]="a.status">
+                        <div
+                          class="apt-chip"
+                          [attr.data-status]="a.status"
+                          (click)="openAppointmentDetail(a)"
+                        >
                           <strong>{{ a.startAt | date: 'shortTime' }}</strong>
                           <span>{{ a.customerName }}</span>
                         </div>
@@ -199,7 +204,11 @@ function buildWeekDays(anchor: Date): Date[] {
                         <div class="hour-label">{{ hourLabel(h) }}</div>
                         <div class="hour-body">
                           @for (a of appointmentsAtHour(h); track a.id) {
-                            <div class="apt-chip wide" [attr.data-status]="a.status">
+                            <div
+                              class="apt-chip wide"
+                              [attr.data-status]="a.status"
+                              (click)="openAppointmentDetail(a)"
+                            >
                               <strong
                                 >{{ a.startAt | date: 'shortTime' }} –
                                 {{ a.endAt | date: 'shortTime' }}</strong
@@ -224,6 +233,12 @@ function buildWeekDays(anchor: Date): Date[] {
       [open]="showCreateModal()"
       (closed)="showCreateModal.set(false)"
       (created)="onAppointmentCreated()"
+    />
+
+    <app-appointment-detail
+      [appointment]="selectedAppointment()"
+      (closed)="selectedAppointment.set(null)"
+      (changed)="onAppointmentChanged()"
     />
   `,
   styles: `
@@ -487,6 +502,12 @@ function buildWeekDays(anchor: Date): Date[] {
       border-left: 3px solid var(--color-primary);
       border-radius: var(--radius-sm);
       font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      &:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: var(--color-border-highlight);
+      }
       strong {
         color: var(--color-primary);
         font-size: 0.7rem;
@@ -587,6 +608,7 @@ export class CalendarComponent implements OnInit {
   protected readonly appointments = signal<AppointmentAdminDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly showCreateModal = signal(false);
+  protected readonly selectedAppointment = signal<AppointmentAdminDto | null>(null);
   protected readonly view = signal<CalendarView>('month');
   protected readonly anchor = signal<Date>(new Date());
 
@@ -695,6 +717,15 @@ export class CalendarComponent implements OnInit {
 
   onAppointmentCreated() {
     this.showCreateModal.set(false);
+    this.loadAppointments();
+  }
+
+  openAppointmentDetail(a: AppointmentAdminDto) {
+    this.selectedAppointment.set(a);
+  }
+
+  onAppointmentChanged() {
+    this.selectedAppointment.set(null);
     this.loadAppointments();
   }
 }

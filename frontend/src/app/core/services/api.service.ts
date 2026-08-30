@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import type {
+  AppointmentAdminDto,
   PublicCompanyDto,
   PublicServiceDto,
   PublicStaffDto,
@@ -14,6 +15,7 @@ import type {
   StaffResponseDto,
   CreateAdminAppointmentDto,
   SetWorkingHoursDto,
+  UpdateAppointmentStatusDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -122,5 +124,26 @@ export class ApiService {
       `${this.baseUrl}/schedule/working-hours`,
       { hours },
     );
+  }
+
+  // 11. Cambiar estado de una cita (admin, autenticado)
+  updateAppointmentStatus(
+    id: number,
+    status: UpdateAppointmentStatusDto['status'],
+    cancellationReason?: string,
+  ): Observable<ApiResponse<AppointmentAdminDto>> {
+    const body: UpdateAppointmentStatusDto = { status };
+    if (cancellationReason?.trim()) {
+      body.cancellationReason = cancellationReason.trim();
+    }
+    return this.http.patch<ApiResponse<AppointmentAdminDto>>(
+      `${this.baseUrl}/appointments/${id}/status`,
+      body,
+    );
+  }
+
+  // 12. Eliminar físicamente una cita (admin, autenticado)
+  deleteAppointment(id: number): Observable<ApiResponse<{ id: number }>> {
+    return this.http.delete<ApiResponse<{ id: number }>>(`${this.baseUrl}/appointments/${id}`);
   }
 }
