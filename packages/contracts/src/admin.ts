@@ -109,6 +109,20 @@ export const createBlockedSlotSchema = z.object({
 export type CreateBlockedSlotDto = z.infer<typeof createBlockedSlotSchema>;
 
 // ---------------------------------------------------------------------------
+// Clientes (Admin)
+// ---------------------------------------------------------------------------
+export const customerResponseSchema = z.object({
+  id: z.number(),
+  companyId: z.number(),
+  name: z.string(),
+  phone: z.string(),
+  email: z.string().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.number(),
+});
+export type CustomerResponseDto = z.infer<typeof customerResponseSchema>;
+
+// ---------------------------------------------------------------------------
 // Citas (Appointments)
 // ---------------------------------------------------------------------------
 export const appointmentAdminSchema = z.object({
@@ -119,6 +133,10 @@ export const appointmentAdminSchema = z.object({
   customerPhone: z.string(),
   staffId: z.number().nullable(),
   staffName: z.string().nullable(),
+  serviceName: z.string().nullable(),
+  serviceId: z.number().nullable(),
+  priceQtz: z.number().nullable(),
+  durationMinutes: z.number().nullable(),
   status: z.enum(['pending', 'confirmed', 'completed', 'canceled', 'no_show']),
   startAt: z.number(),
   endAt: z.number(),

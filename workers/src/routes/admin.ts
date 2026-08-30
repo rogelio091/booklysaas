@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { SignJWT } from 'jose';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc, inArray, like, or } from 'drizzle-orm';
 import {
   loginRequestSchema,
   createServiceSchema,
@@ -379,6 +379,41 @@ protectedAdmin.delete('/schedule/blocks/:id', async (c) => {
   return c.json({ success: true, data: deleted });
 });
 
+// --- 5. Clientes ---
+protectedAdmin.get('/customers', async (c) => {
+  const companyId = c.get('companyId')!;
+  const db = c.get('db');
+
+  const search = c.req.query('search')?.trim() || undefined;
+  const parsedLimit = Number(c.req.query('limit'));
+  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+    ? Math.min(Math.floor(parsedLimit), 100)
+    : 50;
+
+  const searchCondition = search
+    ? or(like(customers.name, `%${search}%`), like(customers.phone, `%${search}%`))
+    : undefined;
+
+  const list = await db.query.customers.findMany({
+    where: withTenant(customers, companyId, searchCondition),
+    orderBy: [desc(customers.createdAt)],
+    limit,
+  });
+
+  return c.json({
+    success: true,
+    data: list.map((c) => ({
+      id: c.id,
+      companyId: c.companyId,
+      name: c.name,
+      phone: c.phone,
+      email: c.email,
+      notes: c.notes,
+      createdAt: c.createdAt.getTime(),
+    })),
+  });
+});
+
 // --- 5. Citas y Actualización de Estado ---
 protectedAdmin.get('/appointments', async (c) => {
   const companyId = c.get('companyId')!;
@@ -405,9 +440,17 @@ protectedAdmin.get('/appointments', async (c) => {
       })
     : [];
 
+  const appointmentIds = list.map((a) => a.id);
+  const items = appointmentIds.length > 0
+    ? await db.query.appointmentItems.findMany({
+        where: withTenant(appointmentItems, companyId, inArray(appointmentItems.appointmentId, appointmentIds)),
+      })
+    : [];
+
   const data = list.map((a) => {
     const cust = customerMap.find((c) => c.id === a.customerId);
     const st = staffMap.find((s) => s.id === a.staffId);
+    const item = items.find((i) => i.appointmentId === a.id);
     return {
       id: a.id,
       companyId: a.companyId,
@@ -416,6 +459,10 @@ protectedAdmin.get('/appointments', async (c) => {
       customerPhone: cust?.phone ?? '',
       staffId: a.staffId,
       staffName: st?.name ?? null,
+      serviceName: item?.serviceName ?? null,
+      serviceId: item?.serviceId ?? null,
+      priceQtz: item?.priceQtz ?? null,
+      durationMinutes: item?.durationMinutes ?? null,
       status: a.status,
       startAt: a.startAt.getTime(),
       endAt: a.endAt.getTime(),
@@ -532,6 +579,28 @@ protectedAdmin.post('/appointments', zValidator('json', createAdminAppointmentSc
     },
     201,
   );
+});
+
+// DELETE físico de una cita (tenant-scoped). El soft-delete se maneja con status 'canceled'.
+protectedAdmin.delete('/appointments/:id', async (c) => {
+  const companyId = c.get('companyId')!;
+  const id = Number(c.req.param('id'));
+  const db = c.get('db');
+
+  const appointment = await db.query.appointments.findFirst({
+    where: withTenant(appointments, companyId, eq(appointments.id, id)),
+  });
+
+  if (!appointment) {
+    return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Cita no encontrada' } }, 404);
+  }
+
+  await db.delete(appointmentItems).where(
+    withTenant(appointmentItems, companyId, eq(appointmentItems.appointmentId, id)),
+  );
+  await db.delete(appointments).where(withTenant(appointments, companyId, eq(appointments.id, id)));
+
+  return c.json({ success: true, data: { id } });
 });
 
 // --- 6. Configuración de la Empresa / Tenant (Tema, Marca, etc.) ---

@@ -59,7 +59,7 @@ export const createBookingSchema = z.object({
   startAt: z.number().int().positive(), // Epoch ms UTC
   customerName: z.string().min(2, 'El nombre es obligatorio'),
   customerPhone: z.string().min(8, 'Teléfono o WhatsApp requerido'),
-  customerEmail: z.string().email('Email inválido'),
+  customerEmail: z.string().email('Email inválido').optional().nullable(),
   notes: z.string().optional(),
 });
 
