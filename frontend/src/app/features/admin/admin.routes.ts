@@ -32,6 +32,13 @@ export const ADMIN_ROUTES: Routes = [
             (m) => m.CalendarComponent,
           ),
       },
+      {
+        path: 'schedule',
+        loadComponent: () =>
+          import('./pages/schedule/schedule.component').then(
+            (m) => m.ScheduleComponent,
+          ),
+      },
     ],
   },
 ];

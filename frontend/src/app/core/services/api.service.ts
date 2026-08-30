@@ -13,6 +13,7 @@ import type {
   ServiceResponseDto,
   StaffResponseDto,
   CreateAdminAppointmentDto,
+  SetWorkingHoursDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -22,6 +23,19 @@ interface ApiResponse<T> {
     code: string;
     message: string;
   };
+}
+
+// Elemento de horario laboral devuelto por el backend (GET /schedule/working-hours)
+export interface WorkingHourDto {
+  id: number;
+  companyId: number;
+  userId: number | null;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  breakStartTime: string | null;
+  breakEndTime: string | null;
+  isActive: boolean;
 }
 
 @Injectable({
@@ -94,5 +108,19 @@ export class ApiService {
     appointment: CreateAdminAppointmentDto,
   ): Observable<ApiResponse<{ id: number }>> {
     return this.http.post<ApiResponse<{ id: number }>>(`${this.baseUrl}/appointments`, appointment);
+  }
+
+  // 10. Horarios laborales (admin, horario general de empresa)
+  getWorkingHours(): Observable<ApiResponse<WorkingHourDto[]>> {
+    return this.http.get<ApiResponse<WorkingHourDto[]>>(`${this.baseUrl}/schedule/working-hours`);
+  }
+
+  saveWorkingHours(
+    hours: SetWorkingHoursDto['hours'],
+  ): Observable<{ success: boolean; message?: string }> {
+    return this.http.post<{ success: boolean; message?: string }>(
+      `${this.baseUrl}/schedule/working-hours`,
+      { hours },
+    );
   }
 }
