@@ -9,6 +9,7 @@ import type {
   PublicStaffDto,
   SlotDto,
   CreateBookingDto,
+  CreateServiceDto,
   LoginRequestDto,
   AuthResponseDto,
   ServiceResponseDto,
@@ -16,6 +17,7 @@ import type {
   CreateAdminAppointmentDto,
   SetWorkingHoursDto,
   UpdateAppointmentStatusDto,
+  UpdateServiceDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -98,6 +100,16 @@ export class ApiService {
   // 7. Catálogo de servicios (admin, autenticado)
   getAdminServices(): Observable<ApiResponse<ServiceResponseDto[]>> {
     return this.http.get<ApiResponse<ServiceResponseDto[]>>(`${this.baseUrl}/services`);
+  }
+
+  // 7b. Crear servicio (admin, autenticado)
+  createService(data: CreateServiceDto): Observable<ApiResponse<ServiceResponseDto>> {
+    return this.http.post<ApiResponse<ServiceResponseDto>>(`${this.baseUrl}/services`, data);
+  }
+
+  // 7c. Actualizar servicio (admin, autenticado)
+  updateService(id: number, data: UpdateServiceDto): Observable<ApiResponse<ServiceResponseDto>> {
+    return this.http.put<ApiResponse<ServiceResponseDto>>(`${this.baseUrl}/services/${id}`, data);
   }
 
   // 8. Staff del tenant (admin, autenticado)

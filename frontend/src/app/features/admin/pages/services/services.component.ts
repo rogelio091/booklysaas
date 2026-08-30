@@ -1,13 +1,8 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import type { ServiceResponseDto, CreateServiceDto } from '@bookly/contracts';
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-}
+import { ApiService } from '../../../../core/services/api.service';
 
 @Component({
   selector: 'app-services-page',
@@ -34,6 +29,9 @@ interface ApiResponse<T> {
                 <span class="price-badge">Q{{ (service.priceQtz / 100).toFixed(2) }}</span>
               </div>
               <p class="desc-text">{{ service.description || 'Sin descripción detallada' }}</p>
+              <div class="card-actions">
+                <button type="button" (click)="editService(service)" class="btn-edit">Editar</button>
+              </div>
               <div class="card-foot">
                 <span class="meta-tag">⏱ {{ service.durationMinutes }} min</span>
                 <span class="status-indicator" [class.active]="service.isActive">
@@ -50,7 +48,7 @@ interface ApiResponse<T> {
       @if (showModal()) {
         <div class="dark-modal-backdrop">
           <div class="dark-modal-card">
-            <h2>Crear Nuevo Servicio</h2>
+            <h2>{{ editingService() ? 'Editar Servicio' : 'Crear Nuevo Servicio' }}</h2>
             <form (ngSubmit)="saveService()" class="service-form">
               <div class="form-group">
                 <label>Nombre del servicio *</label>
@@ -98,7 +96,9 @@ interface ApiResponse<T> {
 
               <div class="modal-actions">
                 <button type="button" (click)="closeModal()" class="btn-cancel">Cancelar</button>
-                <button type="submit" class="btn-primary-glow">Guardar Servicio</button>
+                <button type="submit" class="btn-primary-glow">
+                  {{ editingService() ? 'Guardar Cambios' : 'Guardar Servicio' }}
+                </button>
               </div>
             </form>
           </div>
@@ -183,6 +183,25 @@ interface ApiResponse<T> {
         font-size: 0.825rem;
         flex: 1;
         line-height: 1.4;
+      }
+      .card-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+      .btn-edit {
+        background: transparent;
+        border: 1px solid var(--color-primary);
+        color: var(--color-primary);
+        padding: 0.45rem 1.1rem;
+        border-radius: var(--radius-md);
+        font-weight: 700;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        &:hover {
+          background: var(--color-primary-glow);
+          border-color: var(--color-primary);
+        }
       }
       .card-foot {
         border-top: 1px solid var(--color-border);
@@ -331,30 +350,35 @@ interface ApiResponse<T> {
   ],
 })
 export class ServicesComponent implements OnInit {
-  private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
 
   protected readonly services = signal<ServiceResponseDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly showModal = signal(false);
+  protected readonly editingService = signal<ServiceResponseDto | null>(null);
 
   protected priceInput = 150;
-  protected form: CreateServiceDto = {
-    name: '',
-    description: '',
-    durationMinutes: 30,
-    bufferAfterMinutes: 0,
-    priceQtz: 15000,
-    isActive: true,
-    displayOrder: 0,
-  };
+  protected form: CreateServiceDto = this.emptyForm();
 
   ngOnInit() {
     this.loadServices();
   }
 
+  private emptyForm(): CreateServiceDto {
+    return {
+      name: '',
+      description: '',
+      durationMinutes: 30,
+      bufferAfterMinutes: 0,
+      priceQtz: 15000,
+      isActive: true,
+      displayOrder: 0,
+    };
+  }
+
   loadServices() {
     this.loading.set(true);
-    this.http.get<ApiResponse<ServiceResponseDto[]>>('/api/services').subscribe({
+    this.api.getAdminServices().subscribe({
       next: (res) => {
         if (res.success) {
           this.services.set(res.data);
@@ -368,16 +392,39 @@ export class ServicesComponent implements OnInit {
   }
 
   openModal() {
+    this.editingService.set(null);
+    this.form = this.emptyForm();
+    this.priceInput = 150;
+    this.showModal.set(true);
+  }
+
+  editService(service: ServiceResponseDto) {
+    this.editingService.set(service);
+    this.form = {
+      name: service.name,
+      description: service.description ?? '',
+      durationMinutes: service.durationMinutes,
+      bufferAfterMinutes: service.bufferAfterMinutes,
+      priceQtz: service.priceQtz,
+      isActive: service.isActive,
+      displayOrder: service.displayOrder,
+    };
+    this.priceInput = service.priceQtz / 100;
     this.showModal.set(true);
   }
 
   closeModal() {
     this.showModal.set(false);
+    this.editingService.set(null);
   }
 
   saveService() {
     this.form.priceQtz = Math.round(this.priceInput * 100);
-    this.http.post<ApiResponse<ServiceResponseDto>>('/api/services', this.form).subscribe({
+    const editing = this.editingService();
+    const request$ = editing
+      ? this.api.updateService(editing.id, this.form)
+      : this.api.createService(this.form);
+    request$.subscribe({
       next: () => {
         this.closeModal();
         this.loadServices();
