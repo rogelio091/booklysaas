@@ -68,6 +68,15 @@ import { ThemeService, BooklyTheme } from '../../../core/theme/theme.service';
             <span class="icon">🕐</span>
             <span>Horarios</span>
           </a>
+          <a
+            routerLink="/app/customers"
+            routerLinkActive="active"
+            class="nav-item"
+            (click)="drawerOpen.set(false)"
+          >
+            <span class="icon">👥</span>
+            <span>Clientes</span>
+          </a>
         </nav>
 
         <div class="user-card-footer">

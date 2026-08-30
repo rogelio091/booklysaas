@@ -18,6 +18,7 @@ import type {
   SetWorkingHoursDto,
   UpdateAppointmentStatusDto,
   UpdateServiceDto,
+  CustomerResponseDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -157,5 +158,19 @@ export class ApiService {
   // 12. Eliminar físicamente una cita (admin, autenticado)
   deleteAppointment(id: number): Observable<ApiResponse<{ id: number }>> {
     return this.http.delete<ApiResponse<{ id: number }>>(`${this.baseUrl}/appointments/${id}`);
+  }
+
+  // 13. Listar/buscar clientes (admin, autenticado)
+  getCustomers(search?: string, limit?: number): Observable<ApiResponse<CustomerResponseDto[]>> {
+    const params: Record<string, string> = {};
+    if (search?.trim()) {
+      params['search'] = search.trim();
+    }
+    if (limit !== undefined) {
+      params['limit'] = String(limit);
+    }
+    return this.http.get<ApiResponse<CustomerResponseDto[]>>(`${this.baseUrl}/customers`, {
+      params,
+    });
   }
 }

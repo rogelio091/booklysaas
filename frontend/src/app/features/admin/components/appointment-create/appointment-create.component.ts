@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   EventEmitter,
   inject,
   Input,
@@ -10,8 +11,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged, switchMap, finalize, EMPTY } from 'rxjs';
 import type {
   CreateAdminAppointmentDto,
+  CustomerResponseDto,
   ServiceResponseDto,
   StaffResponseDto,
 } from '@bookly/contracts';
@@ -35,6 +39,35 @@ import { ApiService } from '../../../../core/services/api.service';
             <div class="state-box">Cargando opciones...</div>
           } @else {
             <form [formGroup]="form" (ngSubmit)="onSubmit()" class="appointment-form">
+              <div class="form-group">
+                <label for="customerSearch">Buscar cliente existente</label>
+                <div class="autocomplete">
+                  <input
+                    id="customerSearch"
+                    type="text"
+                    formControlName="customerSearch"
+                    placeholder="Buscar por nombre o teléfono..."
+                    autocomplete="off"
+                  />
+                  @if (searchingCustomers()) {
+                    <span class="autocomplete-hint">Buscando...</span>
+                  }
+                  @if (showSuggestions()) {
+                    <ul class="suggestion-list">
+                      @for (c of customerSuggestions(); track c.id) {
+                        <li>
+                          <button type="button" (click)="selectCustomer(c)">
+                            <strong>{{ c.name }}</strong>
+                            <small>{{ c.phone }}</small>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </div>
+                <small class="form-hint">Selecciona para autocompletar, o escribe uno nuevo abajo.</small>
+              </div>
+
               <div class="form-row">
                 <div class="form-group">
                   <label for="customerName">Nombre del cliente *</label>
@@ -227,6 +260,64 @@ import { ApiService } from '../../../../core/services/api.service';
           }
         }
       }
+      .autocomplete {
+        position: relative;
+      }
+      .autocomplete-hint {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.7rem;
+        color: var(--color-text-muted);
+        pointer-events: none;
+      }
+      .suggestion-list {
+        position: absolute;
+        top: calc(100% + 0.3rem);
+        left: 0;
+        right: 0;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border-highlight);
+        border-radius: var(--radius-sm);
+        max-height: 220px;
+        overflow-y: auto;
+        z-index: 10;
+        box-shadow: var(--shadow-card);
+        list-style: none;
+        margin: 0;
+        padding: 0.25rem;
+        button {
+          width: 100%;
+          text-align: left;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.5rem;
+          background: transparent;
+          border: none;
+          color: var(--color-text);
+          padding: 0.5rem 0.6rem;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          font-family: inherit;
+          &:hover {
+            background: rgba(255, 255, 255, 0.05);
+          }
+          strong {
+            font-size: 0.85rem;
+            color: #fff;
+          }
+          small {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+          }
+        }
+      }
+      .form-hint {
+        font-size: 0.7rem;
+        color: var(--color-text-dim);
+      }
       .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -316,14 +407,19 @@ import { ApiService } from '../../../../core/services/api.service';
 })
 export class AppointmentCreateComponent implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly services = signal<ServiceResponseDto[]>([]);
   protected readonly staff = signal<StaffResponseDto[]>([]);
   protected readonly loadingOptions = signal(true);
   protected readonly saving = signal(false);
   protected readonly submitError = signal<string | null>(null);
+  protected readonly customerSuggestions = signal<CustomerResponseDto[]>([]);
+  protected readonly showSuggestions = signal(false);
+  protected readonly searchingCustomers = signal(false);
 
   protected readonly form = new FormGroup({
+    customerSearch: new FormControl('', { nonNullable: true }),
     customerName: new FormControl('', {
       nonNullable: true,
       validators: Validators.required,
@@ -364,6 +460,35 @@ export class AppointmentCreateComponent implements OnInit {
 
   ngOnInit() {
     this.loadOptions();
+
+    this.form.controls.customerSearch.valueChanges
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const t = term.trim();
+          if (!t) {
+            this.customerSuggestions.set([]);
+            this.showSuggestions.set(false);
+            this.searchingCustomers.set(false);
+            return EMPTY;
+          }
+          this.searchingCustomers.set(true);
+          return this.api.getCustomers(t, 10).pipe(
+            finalize(() => this.searchingCustomers.set(false)),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((res) => {
+        if (res.success) {
+          this.customerSuggestions.set(res.data);
+          this.showSuggestions.set(res.data.length > 0);
+        } else {
+          this.customerSuggestions.set([]);
+          this.showSuggestions.set(false);
+        }
+      });
   }
 
   loadOptions() {
@@ -428,6 +553,17 @@ export class AppointmentCreateComponent implements OnInit {
     this.closed.emit();
   }
 
+  selectCustomer(customer: CustomerResponseDto) {
+    this.form.patchValue({
+      customerName: customer.name,
+      customerPhone: customer.phone,
+      customerEmail: customer.email ?? '',
+    });
+    this.form.controls.customerSearch.setValue('');
+    this.customerSuggestions.set([]);
+    this.showSuggestions.set(false);
+  }
+
   onBackdropClick(event: MouseEvent) {
     if (event.target === event.currentTarget) {
       this.close();
@@ -441,6 +577,9 @@ export class AppointmentCreateComponent implements OnInit {
 
   private reset() {
     this.submitError.set(null);
+    this.customerSuggestions.set([]);
+    this.showSuggestions.set(false);
+    this.searchingCustomers.set(false);
     this.form.reset();
   }
 }

@@ -39,6 +39,13 @@ export const ADMIN_ROUTES: Routes = [
             (m) => m.ScheduleComponent,
           ),
       },
+      {
+        path: 'customers',
+        loadComponent: () =>
+          import('./pages/customers/customers.component').then(
+            (m) => m.CustomersComponent,
+          ),
+      },
     ],
   },
 ];
