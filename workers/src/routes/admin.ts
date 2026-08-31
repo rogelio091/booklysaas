@@ -16,6 +16,7 @@ import {
   createLocationSchema,
   updateLocationSchema,
   assignLocationStaffSchema,
+  assignLocationServicesSchema,
 } from "@bookly/contracts";
 import { authMiddleware } from "../middleware/auth";
 import { verifyPassword } from "../utils/password";
@@ -31,6 +32,7 @@ import {
   appointmentItems,
   locations,
   staffLocations,
+  serviceLocations,
   saasPlans,
 } from "../db/schema";
 import { withTenant } from "../db/client";
@@ -1043,6 +1045,101 @@ protectedAdmin.post(
     }
 
     return c.json({ success: true, data: { staffIds: validIds } });
+  },
+);
+
+// Asignación de servicios a una ubicación (pivot service_locations).
+protectedAdmin.get("/locations/:id/services", async (c) => {
+  const companyId = c.get("companyId")!;
+  const id = Number(c.req.param("id"));
+  const db = c.get("db");
+
+  const location = await db.query.locations.findFirst({
+    where: withTenant(locations, companyId, eq(locations.id, id)),
+  });
+  if (!location) {
+    return c.json(
+      {
+        success: false,
+        error: { code: "NOT_FOUND", message: "Ubicación no encontrada" },
+      },
+      404,
+    );
+  }
+
+  const relations = await db.query.serviceLocations.findMany({
+    where: withTenant(
+      serviceLocations,
+      companyId,
+      eq(serviceLocations.locationId, id),
+    ),
+  });
+
+  const serviceIds = relations.map((r) => r.serviceId);
+  const serviceList =
+    serviceIds.length > 0
+      ? await db.query.services.findMany({
+          where: withTenant(services, companyId, inArray(services.id, serviceIds)),
+          orderBy: [services.displayOrder],
+        })
+      : [];
+
+  return c.json({ success: true, data: serviceList });
+});
+
+protectedAdmin.post(
+  "/locations/:id/services",
+  zValidator("json", assignLocationServicesSchema),
+  async (c) => {
+    const companyId = c.get("companyId")!;
+    const id = Number(c.req.param("id"));
+    const { serviceIds } = c.req.valid("json");
+    const db = c.get("db");
+
+    const location = await db.query.locations.findFirst({
+      where: withTenant(locations, companyId, eq(locations.id, id)),
+    });
+    if (!location) {
+      return c.json(
+        {
+          success: false,
+          error: { code: "NOT_FOUND", message: "Ubicación no encontrada" },
+        },
+        404,
+      );
+    }
+
+    // Filtrar serviceIds que pertenecen al tenant (aislamiento multi-tenant).
+    const validServices =
+      serviceIds.length > 0
+        ? await db.query.services.findMany({
+            where: withTenant(services, companyId, inArray(services.id, serviceIds)),
+          })
+        : [];
+    const validIds = validServices.map((s) => s.id);
+
+    // Reemplazar asignaciones existentes.
+    await db
+      .delete(serviceLocations)
+      .where(
+        withTenant(
+          serviceLocations,
+          companyId,
+          eq(serviceLocations.locationId, id),
+        ),
+      );
+
+    if (validIds.length > 0) {
+      await db.insert(serviceLocations).values(
+        validIds.map((serviceId) => ({
+          companyId,
+          locationId: id,
+          serviceId,
+        })),
+      );
+    }
+
+    return c.json({ success: true, data: { serviceIds: validIds } });
   },
 );
 

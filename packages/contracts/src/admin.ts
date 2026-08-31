@@ -116,6 +116,11 @@ export const assignLocationStaffSchema = z.object({
 });
 export type AssignLocationStaffDto = z.infer<typeof assignLocationStaffSchema>;
 
+export const assignLocationServicesSchema = z.object({
+  serviceIds: z.array(z.number().int().positive()),
+});
+export type AssignLocationServicesDto = z.infer<typeof assignLocationServicesSchema>;
+
 // ---------------------------------------------------------------------------
 // Horarios Laborales (Working Hours)
 // ---------------------------------------------------------------------------
