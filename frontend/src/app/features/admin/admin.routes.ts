@@ -46,6 +46,13 @@ export const ADMIN_ROUTES: Routes = [
             (m) => m.CustomersComponent,
           ),
       },
+      {
+        path: 'locations',
+        loadComponent: () =>
+          import('./pages/locations/locations.component').then(
+            (m) => m.LocationsComponent,
+          ),
+      },
     ],
   },
 ];

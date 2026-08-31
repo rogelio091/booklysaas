@@ -19,6 +19,9 @@ import type {
   UpdateAppointmentStatusDto,
   UpdateServiceDto,
   CustomerResponseDto,
+  LocationResponseDto,
+  CreateLocationDto,
+  UpdateLocationDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -28,6 +31,13 @@ interface ApiResponse<T> {
     code: string;
     message: string;
   };
+}
+
+// Elemento de staff asignado a una ubicación (GET /locations/:id/staff)
+export interface LocationStaffDto {
+  id: number;
+  name: string;
+  email: string;
 }
 
 // Elemento de horario laboral devuelto por el backend (GET /schedule/working-hours)
@@ -172,5 +182,40 @@ export class ApiService {
     return this.http.get<ApiResponse<CustomerResponseDto[]>>(`${this.baseUrl}/customers`, {
       params,
     });
+  }
+
+  // 14. Ubicaciones (admin, autenticado)
+  getLocations(): Observable<ApiResponse<LocationResponseDto[]>> {
+    return this.http.get<ApiResponse<LocationResponseDto[]>>(`${this.baseUrl}/locations`);
+  }
+
+  createLocation(data: CreateLocationDto): Observable<ApiResponse<LocationResponseDto>> {
+    return this.http.post<ApiResponse<LocationResponseDto>>(`${this.baseUrl}/locations`, data);
+  }
+
+  updateLocation(
+    id: number,
+    data: UpdateLocationDto,
+  ): Observable<ApiResponse<LocationResponseDto>> {
+    return this.http.put<ApiResponse<LocationResponseDto>>(`${this.baseUrl}/locations/${id}`, data);
+  }
+
+  deleteLocation(id: number): Observable<ApiResponse<LocationResponseDto>> {
+    return this.http.delete<ApiResponse<LocationResponseDto>>(`${this.baseUrl}/locations/${id}`);
+  }
+
+  // 15. Asignación de staff a ubicaciones
+  getLocationStaff(id: number): Observable<ApiResponse<LocationStaffDto[]>> {
+    return this.http.get<ApiResponse<LocationStaffDto[]>>(`${this.baseUrl}/locations/${id}/staff`);
+  }
+
+  assignLocationStaff(
+    id: number,
+    staffIds: number[],
+  ): Observable<ApiResponse<{ staffIds: number[] }>> {
+    return this.http.post<ApiResponse<{ staffIds: number[] }>>(
+      `${this.baseUrl}/locations/${id}/staff`,
+      { staffIds },
+    );
   }
 }

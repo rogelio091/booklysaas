@@ -77,6 +77,15 @@ import { ThemeService, BooklyTheme } from '../../../core/theme/theme.service';
             <span class="icon">👥</span>
             <span>Clientes</span>
           </a>
+          <a
+            routerLink="/app/locations"
+            routerLinkActive="active"
+            class="nav-item"
+            (click)="drawerOpen.set(false)"
+          >
+            <span class="icon">📍</span>
+            <span>Ubicaciones</span>
+          </a>
         </nav>
 
         <div class="user-card-footer">
