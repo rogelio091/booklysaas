@@ -80,6 +80,43 @@ export const staffResponseSchema = z.object({
 export type StaffResponseDto = z.infer<typeof staffResponseSchema>;
 
 // ---------------------------------------------------------------------------
+// Lugares de Atención (Locations)
+// ---------------------------------------------------------------------------
+export const locationTypeSchema = z.enum(['fixed', 'mobile']);
+
+export const createLocationSchema = z.object({
+  name: z.string().min(2, 'El nombre es requerido'),
+  address: z.string().optional().nullable(),
+  slug: z
+    .string()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido (minúsculas, números y guiones)'),
+  type: locationTypeSchema.default('fixed'),
+  serviceRadiusKm: z.number().int().nonnegative().optional().nullable(),
+  isActive: z.boolean().default(true),
+});
+export type CreateLocationDto = z.infer<typeof createLocationSchema>;
+
+export const updateLocationSchema = createLocationSchema.partial();
+export type UpdateLocationDto = z.infer<typeof updateLocationSchema>;
+
+export const locationResponseSchema = z.object({
+  id: z.number(),
+  companyId: z.number(),
+  name: z.string(),
+  address: z.string().nullable(),
+  slug: z.string(),
+  type: locationTypeSchema,
+  serviceRadiusKm: z.number().nullable(),
+  isActive: z.boolean(),
+});
+export type LocationResponseDto = z.infer<typeof locationResponseSchema>;
+
+export const assignLocationStaffSchema = z.object({
+  staffIds: z.array(z.number().int().positive()),
+});
+export type AssignLocationStaffDto = z.infer<typeof assignLocationStaffSchema>;
+
+// ---------------------------------------------------------------------------
 // Horarios Laborales (Working Hours)
 // ---------------------------------------------------------------------------
 export const workingHourItemSchema = z.object({

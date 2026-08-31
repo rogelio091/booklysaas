@@ -33,6 +33,7 @@ export const saasPlans = sqliteTable('saas_plans', {
   monthlyPriceQtz: integer('monthly_price_qtz').notNull(),
   maxStaff: integer('max_staff').notNull().default(1),
   monthlyAppointments: integer('monthly_appointments').notNull().default(100),
+  maxLocations: integer('max_locations').notNull().default(1),
   featuresJson: text('features_json').notNull().default('{}'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
@@ -91,6 +92,10 @@ export const locations = sqliteTable(
     name: text('name').notNull(),
     address: text('address'),
     slug: text('slug').notNull(),
+    type: text('type', { enum: ['fixed', 'mobile'] })
+      .notNull()
+      .default('fixed'),
+    serviceRadiusKm: integer('service_radius_km'),
     isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
     ...timestamps,
   },
@@ -213,6 +218,28 @@ export const staffServices = sqliteTable(
   (t) => ({
     pk: uniqueIndex('staff_services_pk').on(t.userId, t.serviceId),
     companyIdx: index('staff_services_company_idx').on(t.companyId),
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Relación Staff <-> Lugares (pivot)
+// ---------------------------------------------------------------------------
+export const staffLocations = sqliteTable(
+  'staff_locations',
+  {
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    locationId: integer('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.locationId] }),
+    companyIdx: index('staff_locations_company_idx').on(t.companyId),
   }),
 );
 

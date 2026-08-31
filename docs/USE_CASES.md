@@ -92,27 +92,35 @@ El **Slot Engine requiere la duración del servicio** para generar disponibilida
 
 > Decisión: el concepto no es "sucursal corporativa" sino **dónde se presta el servicio físicamente**.
 
-### 4.1 Tabla `locations`
+### 4.1 Tabla `locations` (modelo con tipos — validado por Judgment Day 2026-08-31)
 
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | integer | PK |
 | `company_id` | fk | |
-| `name` | text | Ej: "Consultorio Zona 10" |
-| `address` | text | |
+| `name` | text | Ej: "Mi Estudio de Uñas" |
+| `address` | text | Dirección del local (si es fija) |
+| `slug` | text | Identificador público único por empresa |
+| `type` | enum `fixed` \| `mobile` | **`fixed`** = lugar propio donde recibe; **`mobile`** = viaja al cliente (domicilio) |
+| `service_radius_km` | int nullable | Radio de cobertura para móvil (v1: nullable, sin enforcement) |
 | `is_active` | boolean | |
+
+**Regla de cardinalidad (v1):** máximo **UNA** ubicación `mobile` por empresa, más N `fixed`.
 
 ### 4.2 Relaciones
 
 - `services ↔ locations`: un servicio puede atenderse en **1 o más** lugares (tabla pivote `service_locations`).
-- `staff ↔ locations`: un staff atiende en sus lugares asignados.
+- `staff ↔ locations`: un staff atiende en sus lugares asignados (**tabla pivote `staff_locations`** — REQUERIDO para que el Slot Engine sepa qué staff cubre cada lugar).
 - `working_hours` puede ser por `location_id` (horarios propios por lugar).
+- `blocked_slots` puede ser por `location_id`.
 
 ### 4.3 Comportamiento en el portal
 
 - Si la empresa tiene **1 lugar** por defecto → no se muestra al cliente.
-- Si tiene **varios** → el cliente elige lugar (opcional) antes de ver horarios.
+- Si tiene **varios** → el cliente elige ubicación (fijo o móvil) antes de ver servicios/horarios.
+- **Ubicación fija** → slots automáticos (Slot Engine). **Ubicación móvil** → pide dirección del cliente y la cita queda `pending` hasta **confirmación manual del negocio** (patrón Booksy).
 - El link público puede apuntar a un lugar específico: `/book/:slug?location=consultorio-zona-10`.
+- `appointments.location_id` se setea en la reserva (hoy se inserta null).
 
 ---
 
