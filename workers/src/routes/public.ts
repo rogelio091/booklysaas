@@ -11,6 +11,7 @@ import {
   customers,
   workingHours,
   blockedSlots,
+  staffLocations,
 } from '../db/schema';
 import { computeAvailability } from '../services/slot-engine';
 import { sendAppointmentConfirmationEmail } from '../services/notification';
@@ -147,6 +148,28 @@ publicRoutes.get(
       columns: { id: true, name: true },
     });
 
+    const locationId = query.locationId ?? null;
+
+    // staffByLocation: locationId -> staffIds asignados (pivot staff_locations).
+    let staffByLocation: Map<number, number[]> | undefined;
+    let eligibleStaffIds: Set<number> | undefined;
+
+    if (locationId != null) {
+      const assignments = await db.query.staffLocations.findMany({
+        where: eq(staffLocations.companyId, company.id),
+        columns: { userId: true, locationId: true },
+      });
+
+      staffByLocation = new Map<number, number[]>();
+      for (const assignment of assignments) {
+        const existing = staffByLocation.get(assignment.locationId) ?? [];
+        existing.push(assignment.userId);
+        staffByLocation.set(assignment.locationId, existing);
+      }
+
+      eligibleStaffIds = new Set(staffByLocation.get(locationId) ?? []);
+    }
+
     const hours = await db.query.workingHours.findMany({
       where: and(eq(workingHours.companyId, company.id), eq(workingHours.isActive, true)),
     });
@@ -167,8 +190,11 @@ publicRoutes.get(
       timezone: company.timezone,
       serviceDurationMinutes: service.durationMinutes,
       intervalMinutes: 15,
+      locationId,
+      staffByLocation,
       workingHours: hours.map((h) => ({
         userId: h.userId,
+        locationId: h.locationId,
         dayOfWeek: h.dayOfWeek,
         startTime: h.startTime,
         endTime: h.endTime,
@@ -178,16 +204,20 @@ publicRoutes.get(
       })),
       appointments: existingAppointments.map((a) => ({
         staffId: a.staffId,
+        locationId: a.locationId,
         startAt: a.startAt.getTime(),
         endAt: a.endAt.getTime(),
         bufferAfterMinutes: a.bufferMinutes ?? 0,
       })),
       blockedSlots: blocks.map((b) => ({
         userId: b.userId,
+        locationId: b.locationId,
         startAt: b.startAt.getTime(),
         endAt: b.endAt.getTime(),
       })),
-      staff: staffMembers.map((s) => ({ id: s.id, name: s.name })),
+      staff: staffMembers
+        .filter((s) => eligibleStaffIds == null || eligibleStaffIds.has(s.id))
+        .map((s) => ({ id: s.id, name: s.name })),
       staffId: query.staffId ?? null,
     });
 
@@ -260,6 +290,7 @@ publicRoutes.post(
         companyId: company.id,
         customerId: customer.id,
         staffId: body.staffId ?? null,
+        locationId: body.locationId ?? null,
         status: 'confirmed',
         startAt: new Date(body.startAt),
         endAt: new Date(endAt),

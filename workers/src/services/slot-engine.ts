@@ -19,6 +19,8 @@
 export interface WorkingHoursEntry {
   /** `null` para horario general de la empresa; id del staff para horario específico. */
   userId: number | null;
+  /** Lugar al que aplica el horario. `null` = horario general de la empresa (aplica a todos). */
+  locationId: number | null;
   /** 0 (Domingo) - 6 (Sábado). */
   dayOfWeek: number;
   /** Hora de inicio en formato "HH:MM" (24h) en el timezone de la empresa. */
@@ -37,6 +39,8 @@ export interface WorkingHoursEntry {
 export interface AppointmentEntry {
   /** Staff dueño de la cita. `null` = cita sin asignar (no bloquea a ningún staff). */
   staffId: number | null;
+  /** Lugar de la cita. `null` = cita sin lugar (general, ocupa en todos los lugares). */
+  locationId: number | null;
   startAt: number;
   endAt: number;
   /** Buffer después de la cita (equivale a `appointments.bufferMinutes` / `services.bufferAfterMinutes`). */
@@ -46,6 +50,8 @@ export interface AppointmentEntry {
 /** Bloqueo de horario (general `userId = null` o específico de staff). */
 export interface BlockedSlotEntry {
   userId: number | null;
+  /** Lugar del bloqueo. `null` = bloqueo general (aplica a todos los lugares). */
+  locationId: number | null;
   startAt: number;
   endAt: number;
 }
@@ -84,6 +90,13 @@ export interface AvailabilityRequest {
   staff: StaffEntry[];
   /** Staff solicitado. `null`/omitido = "cualquiera disponible". */
   staffId?: number | null;
+  /** Lugar consultado. `null`/omitido = sin filtro de ubicación (comportamiento legacy). */
+  locationId: number | null;
+  /**
+   * Mapa `locationId -> staffIds` asignados a ese lugar (pivot `staff_locations`).
+   * Se usa en "cualquiera disponible" para restringir el staff al lugar consultado.
+   */
+  staffByLocation?: Map<number, number[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -388,6 +401,8 @@ export function isStaffAvailable(
  * - Con `staffId` numérico: devuelve solo los slots libres de ese staff.
  * - Con `staffId = null` (u omitido): devuelve un slot si AL MENOS UN staff
  *   está disponible (el slot resultante lleva `staffId = null`).
+ * - Con `locationId` numérico: filtra horarios/bloqueos/citas por lugar y restringe
+ *   el staff de "cualquiera disponible" a los asignados al lugar.
  */
 export function computeAvailability(
   request: AvailabilityRequest,
@@ -402,7 +417,49 @@ export function computeAvailability(
   const { year, monthIndex, day } = parseDate(request.date);
   const dayOfWeek = getDayOfWeek(year, monthIndex, day);
 
-  const relevantStaffIds = new Set<number>(request.staff.map((s) => s.id));
+  const locationId = request.locationId ?? null;
+
+  // Compatibilidad hacia atrás: sin locationId, todas las entradas aplican (como hoy).
+  // Con locationId, solo aplican las entradas generales (locationId === null) o las del lugar.
+  const workingHours =
+    locationId == null
+      ? request.workingHours
+      : request.workingHours.filter(
+          (w) => w.locationId == null || w.locationId === locationId,
+        );
+  const blockedSlots =
+    locationId == null
+      ? request.blockedSlots
+      : request.blockedSlots.filter(
+          (b) => b.locationId == null || b.locationId === locationId,
+        );
+  const appointments =
+    locationId == null
+      ? request.appointments
+      : request.appointments.filter(
+          (a) => a.locationId == null || a.locationId === locationId,
+        );
+
+  // En "cualquiera disponible", restringe el staff a los asignados al lugar consultado.
+  const staff =
+    request.staffId == null && locationId != null && request.staffByLocation
+      ? (() => {
+          const locationStaffIds = request.staffByLocation!.get(locationId);
+          if (!locationStaffIds || locationStaffIds.length === 0) return [];
+          const idSet = new Set(locationStaffIds);
+          return request.staff.filter((s) => idSet.has(s.id));
+        })()
+      : request.staff;
+
+  const effectiveRequest: AvailabilityRequest = {
+    ...request,
+    workingHours,
+    blockedSlots,
+    appointments,
+    staff,
+  };
+
+  const relevantStaffIds = new Set<number>(staff.map((s) => s.id));
   if (request.staffId != null) {
     relevantStaffIds.add(request.staffId);
   }
@@ -410,7 +467,7 @@ export function computeAvailability(
   // Unión de los candidatos generados por cada entrada de horario (general y
   // específicas de staff relevantes). Luego se filtra por staff.
   const candidateStarts = new Set<number>();
-  for (const entry of request.workingHours) {
+  for (const entry of workingHours) {
     if (entry.dayOfWeek !== dayOfWeek) continue;
     if (entry.isActive === false) continue;
     if (entry.userId !== null && !relevantStaffIds.has(entry.userId)) continue;
@@ -435,7 +492,7 @@ export function computeAvailability(
     const slot: SlotCandidate = { startAt, endAt: startAt + durationMs };
 
     if (request.staffId != null) {
-      if (isStaffAvailable(request.staffId, slot, request)) {
+      if (isStaffAvailable(request.staffId, slot, effectiveRequest)) {
         const staffName =
           request.staff.find((s) => s.id === request.staffId)?.name ?? null;
         result.push({
@@ -446,8 +503,8 @@ export function computeAvailability(
         });
       }
     } else {
-      const anyAvailable = request.staff.some((s) =>
-        isStaffAvailable(s.id, slot, request),
+      const anyAvailable = staff.some((s) =>
+        isStaffAvailable(s.id, slot, effectiveRequest),
       );
       if (anyAvailable) {
         result.push({ startAt, endAt: slot.endAt, staffId: null, staffName: null });

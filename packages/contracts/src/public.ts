@@ -37,6 +37,7 @@ export type PublicStaffDto = z.infer<typeof publicStaffSchema>;
 export const availabilityQuerySchema = z.object({
   serviceId: z.coerce.number().int().positive(),
   staffId: z.coerce.number().int().positive().optional().nullable(),
+  locationId: z.coerce.number().int().positive().optional().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD'),
 });
 
@@ -56,6 +57,7 @@ export type SlotDto = z.infer<typeof slotSchema>;
 export const createBookingSchema = z.object({
   serviceId: z.number().int().positive(),
   staffId: z.number().int().nullable().optional(),
+  locationId: z.coerce.number().int().positive().optional().nullable(),
   startAt: z.number().int().positive(), // Epoch ms UTC
   customerName: z.string().min(2, 'El nombre es obligatorio'),
   customerPhone: z.string().min(8, 'Teléfono o WhatsApp requerido'),

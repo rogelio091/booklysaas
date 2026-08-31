@@ -28,6 +28,7 @@ const staff = [
 
 const generalHours: WorkingHoursEntry = {
   userId: null,
+  locationId: null,
   dayOfWeek: 3,
   startTime: '09:00',
   endTime: '17:00',
@@ -39,6 +40,7 @@ function request(overrides: Partial<AvailabilityRequest> = {}): AvailabilityRequ
     timezone: GT,
     serviceDurationMinutes: 30,
     intervalMinutes: 30,
+    locationId: null,
     workingHours: [generalHours],
     appointments: [],
     blockedSlots: [],
@@ -66,6 +68,7 @@ describe('generateCandidates', () => {
   it('genera slots según horario laboral, duración e intervalo (15 min)', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '10:00',
@@ -84,6 +87,7 @@ describe('generateCandidates', () => {
   it('genera slots con intervalo de 30 minutos', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '10:00',
@@ -97,6 +101,7 @@ describe('generateCandidates', () => {
   it('no genera un slot que exceda el fin del horario laboral', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '09:45',
@@ -110,6 +115,7 @@ describe('generateCandidates', () => {
   it('excluye los slots que se solapan con el horario de descanso', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '10:00',
@@ -131,6 +137,7 @@ describe('computeAvailability — citas existentes (startAt/endAt + bufferAfterM
   it('excluye el slot de un staff solapado por una cita, incluyendo su buffer', () => {
     const appointment: AppointmentEntry = {
       staffId: 1,
+      locationId: null,
       startAt: gt(10, 0),
       endAt: gt(10, 30),
       bufferAfterMinutes: 15,
@@ -152,6 +159,7 @@ describe('computeAvailability — citas existentes (startAt/endAt + bufferAfterM
   it('borde exacto: un slot que termina justo cuando empieza una cita está DISPONIBLE', () => {
     const appointment: AppointmentEntry = {
       staffId: 1,
+      locationId: null,
       startAt: gt(10, 30),
       endAt: gt(11, 0),
       bufferAfterMinutes: 0,
@@ -169,6 +177,7 @@ describe('computeAvailability — bloqueos de horario', () => {
   it('excluye slots bloqueados para toda la empresa (userId = null)', () => {
     const block: BlockedSlotEntry = {
       userId: null,
+      locationId: null,
       startAt: gt(9, 0),
       endAt: gt(9, 30),
     };
@@ -183,6 +192,7 @@ describe('computeAvailability — bloqueos de horario', () => {
   it('aplica un bloqueo específico de staff solo a ese staff', () => {
     const block: BlockedSlotEntry = {
       userId: 1,
+      locationId: null,
       startAt: gt(9, 0),
       endAt: gt(9, 30),
     };
@@ -197,6 +207,7 @@ describe('computeAvailability — "Cualquiera disponible" (staffId = null)', () 
   it('devuelve el slot si AL MENOS UN staff tiene disponibilidad', () => {
     const busyAna: AppointmentEntry = {
       staffId: 1,
+      locationId: null,
       startAt: gt(9, 0),
       endAt: gt(9, 30),
       bufferAfterMinutes: 0,
@@ -210,8 +221,8 @@ describe('computeAvailability — "Cualquiera disponible" (staffId = null)', () 
 
   it('no devuelve el slot cuando TODOS los staff están ocupados', () => {
     const appointments: AppointmentEntry[] = [
-      { staffId: 1, startAt: gt(9, 0), endAt: gt(9, 30), bufferAfterMinutes: 0 },
-      { staffId: 2, startAt: gt(9, 0), endAt: gt(9, 30), bufferAfterMinutes: 0 },
+      { staffId: 1, locationId: null, startAt: gt(9, 0), endAt: gt(9, 30), bufferAfterMinutes: 0 },
+      { staffId: 2, locationId: null, startAt: gt(9, 0), endAt: gt(9, 30), bufferAfterMinutes: 0 },
     ];
 
     const result = computeAvailability(request({ staffId: null, appointments }));
@@ -224,7 +235,7 @@ describe('computeAvailability — horario laboral por staff', () => {
   it('usa el horario específico del staff y cae al general cuando no existe', () => {
     const workingHours: WorkingHoursEntry[] = [
       generalHours,
-      { userId: 1, dayOfWeek: 3, startTime: '10:00', endTime: '11:00' },
+      { userId: 1, locationId: null, dayOfWeek: 3, startTime: '10:00', endTime: '11:00' },
     ];
 
     const result = computeAvailability(
@@ -242,6 +253,7 @@ describe('computeAvailability — timezones IANA', () => {
   it('interpreta el horario laboral en el timezone IANA configurado', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '09:30',
@@ -256,6 +268,7 @@ describe('computeAvailability — timezones IANA', () => {
   it('respeta el horario de verano (DST) en timezones que lo aplican', () => {
     const entry: WorkingHoursEntry = {
       userId: null,
+      locationId: null,
       dayOfWeek: 3,
       startTime: '09:00',
       endTime: '09:30',
@@ -283,11 +296,115 @@ describe('validación de entrada', () => {
   it('isStaffAvailable devuelve false si el horario del staff no cubre el slot', () => {
     const slot = { startAt: gt(9, 0), endAt: gt(9, 30) };
     const workingHours: WorkingHoursEntry[] = [
-      { userId: 1, dayOfWeek: 3, startTime: '10:00', endTime: '11:00' },
+      { userId: 1, locationId: null, dayOfWeek: 3, startTime: '10:00', endTime: '11:00' },
     ];
 
     expect(
       isStaffAvailable(1, slot, request({ workingHours })),
     ).toBe(false);
+  });
+});
+
+describe('computeAvailability — ubicación (locationId)', () => {
+  it('en "cualquiera disponible" solo considera staff asignado al lugar', () => {
+    // Solo Ana (1) cubre el lugar 10; Beto (2) no.
+    const staffByLocation = new Map([[10, [1]]]);
+    // Bloquea a Ana a las 9:00; Beto está libre pero no cubre el lugar 10.
+    const block: BlockedSlotEntry = {
+      userId: 1,
+      locationId: null,
+      startAt: gt(9, 0),
+      endAt: gt(9, 30),
+    };
+
+    const result = computeAvailability(
+      request({ staffId: null, locationId: 10, staffByLocation, blockedSlots: [block] }),
+    );
+
+    // Beto (libre) no cuenta -> 9:00 no disponible; 9:30 sí (Ana ya libre).
+    expect(result.map((s) => s.startAt)).not.toContain(gt(9, 0));
+    expect(result.map((s) => s.startAt)).toContain(gt(9, 30));
+  });
+
+  it('aplica solo horarios generales o del lugar consultado', () => {
+    const workingHours: WorkingHoursEntry[] = [
+      { userId: null, locationId: 5, dayOfWeek: 3, startTime: '09:00', endTime: '10:00' },
+    ];
+
+    // El horario pertenece al lugar 5, no al 10.
+    expect(
+      computeAvailability(request({ workingHours, locationId: 10, staffId: 1 })),
+    ).toEqual([]);
+    expect(
+      computeAvailability(request({ workingHours, locationId: 5, staffId: 1 })).map((s) => s.startAt),
+    ).toContain(gt(9, 0));
+  });
+
+  it('aplica bloqueos solo en su lugar (o bloqueos generales)', () => {
+    const blockLocation5: BlockedSlotEntry = {
+      userId: null,
+      locationId: 5,
+      startAt: gt(9, 0),
+      endAt: gt(9, 30),
+    };
+
+    // El bloqueo del lugar 5 no afecta al lugar 10.
+    expect(
+      computeAvailability(
+        request({ blockedSlots: [blockLocation5], locationId: 10, staffId: 1 }),
+      ).map((s) => s.startAt),
+    ).toContain(gt(9, 0));
+    // Sí afecta al lugar 5.
+    expect(
+      computeAvailability(
+        request({ blockedSlots: [blockLocation5], locationId: 5, staffId: 1 }),
+      ).map((s) => s.startAt),
+    ).not.toContain(gt(9, 0));
+
+    // Un bloqueo general (locationId null) aplica en cualquier lugar.
+    const blockGeneral: BlockedSlotEntry = {
+      userId: null,
+      locationId: null,
+      startAt: gt(9, 0),
+      endAt: gt(9, 30),
+    };
+    expect(
+      computeAvailability(
+        request({ blockedSlots: [blockGeneral], locationId: 5, staffId: 1 }),
+      ).map((s) => s.startAt),
+    ).not.toContain(gt(9, 0));
+  });
+
+  it('una cita solo ocupa slot en su lugar (o si es general)', () => {
+    const appointment: AppointmentEntry = {
+      staffId: 1,
+      locationId: 5,
+      startAt: gt(9, 0),
+      endAt: gt(9, 30),
+      bufferAfterMinutes: 0,
+    };
+
+    // Cita en lugar 5 no bloquea al lugar 10.
+    expect(
+      computeAvailability(
+        request({ appointments: [appointment], locationId: 10, staffId: 1 }),
+      ).map((s) => s.startAt),
+    ).toContain(gt(9, 0));
+    // Sí bloquea al lugar 5.
+    expect(
+      computeAvailability(
+        request({ appointments: [appointment], locationId: 5, staffId: 1 }),
+      ).map((s) => s.startAt),
+    ).not.toContain(gt(9, 0));
+  });
+
+  it('sin locationId (null) no filtra por ubicación (compatibilidad hacia atrás)', () => {
+    const workingHours: WorkingHoursEntry[] = [
+      { userId: null, locationId: 5, dayOfWeek: 3, startTime: '09:00', endTime: '10:00' },
+    ];
+
+    // Sin locationId, la entrada del lugar 5 se considera (sin filtro).
+    const result = computeAvailability(request({ workingHours, staffId: 1 }));
+    expect(result.map((s) => s.startAt)).toContain(gt(9, 0));
   });
 });
