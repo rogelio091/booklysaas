@@ -330,20 +330,20 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
                   <form class="contact-form">
                     <div class="form-field">
                       <label>Nombre y Apellido *</label>
-                      <input type="text" [(ngModel)]="customerName" name="name" placeholder="Ej. Juan Pérez" required />
+                      <input type="text" [ngModel]="customerName()" (ngModelChange)="customerName.set($event)" name="name" placeholder="Ej. Juan Pérez" required />
                     </div>
                     <div class="form-field">
                       <label>WhatsApp / Teléfono Móvil *</label>
-                      <input type="tel" [(ngModel)]="customerPhone" name="phone" placeholder="+502 0000-0000" required />
+                      <input type="tel" [ngModel]="customerPhone()" (ngModelChange)="customerPhone.set($event)" name="phone" placeholder="+502 0000-0000" required />
                     </div>
                     <div class="form-field">
                       <label>Correo Electrónico *</label>
-                      <input type="email" [(ngModel)]="customerEmail" name="email" placeholder="correo@ejemplo.com" required />
+                      <input type="email" [ngModel]="customerEmail()" (ngModelChange)="customerEmail.set($event)" name="email" placeholder="correo@ejemplo.com" required />
                     </div>
                     @if (isMobileLocation()) {
                       <div class="form-field">
                         <label>Dirección de destino (A domicilio) *</label>
-                        <input type="text" [(ngModel)]="customerAddress" name="address" placeholder="Calle, zona, referencias..." required />
+                        <input type="text" [ngModel]="customerAddress()" (ngModelChange)="customerAddress.set($event)" name="address" placeholder="Calle, zona, referencias..." required />
                       </div>
                     }
                   </form>
@@ -803,10 +803,10 @@ export class BookingComponent implements OnInit {
   protected readonly submitting = signal(false);
   protected readonly confirmedAppointment = signal<BookingConfirmation | null>(null);
 
-  protected customerName = '';
-  protected customerPhone = '';
-  protected customerEmail = '';
-  protected customerAddress = '';
+  protected readonly customerName = signal('');
+  protected readonly customerPhone = signal('');
+  protected readonly customerEmail = signal('');
+  protected readonly customerAddress = signal('');
 
   protected readonly weekdayHeader = CLIENT_WEEKDAYS;
 
@@ -848,10 +848,10 @@ export class BookingComponent implements OnInit {
       case 'staff': return true; // null significa "cualquiera"
       case 'datetime': return !!this.selectedSlot();
       case 'data':
-        return this.customerName.trim().length >= 2
-          && this.customerPhone.trim().length >= 8
-          && this.customerEmail.includes('@')
-          && (!this.isMobileLocation() || this.customerAddress.trim().length >= 5);
+        return this.customerName().trim().length >= 2
+          && this.customerPhone().trim().length >= 8
+          && this.customerEmail().includes('@')
+          && (!this.isMobileLocation() || this.customerAddress().trim().length >= 5);
       default: return true;
     }
   });
@@ -1043,10 +1043,10 @@ export class BookingComponent implements OnInit {
       staffId: this.selectedStaff()?.id ?? null,
       locationId: this.selectedLocation()?.id ?? null,
       startAt: slot.startAt,
-      customerName: this.customerName,
-      customerPhone: this.customerPhone,
-      customerEmail: this.customerEmail,
-      customerAddress: this.isMobileLocation() ? this.customerAddress : undefined,
+      customerName: this.customerName(),
+      customerPhone: this.customerPhone(),
+      customerEmail: this.customerEmail(),
+      customerAddress: this.isMobileLocation() ? this.customerAddress() : undefined,
     };
 
     this.submitting.set(true);
