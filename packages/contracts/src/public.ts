@@ -13,6 +13,18 @@ export const publicCompanySchema = z.object({
 
 export type PublicCompanyDto = z.infer<typeof publicCompanySchema>;
 
+// Public Location (atención fija o móvil)
+export const publicLocationSchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string(),
+  address: z.string().nullable().optional(),
+  type: z.enum(['fixed', 'mobile']).default('fixed'),
+  serviceRadiusKm: z.number().int().nonnegative().nullable().optional(),
+  slug: z.string(),
+});
+
+export type PublicLocationDto = z.infer<typeof publicLocationSchema>;
+
 // Public Service
 export const publicServiceSchema = z.object({
   id: z.number().int().positive(),
@@ -62,6 +74,7 @@ export const createBookingSchema = z.object({
   customerName: z.string().min(2, 'El nombre es obligatorio'),
   customerPhone: z.string().min(8, 'Teléfono o WhatsApp requerido'),
   customerEmail: z.string().email('Email inválido').optional().nullable(),
+  customerAddress: z.string().optional(), // Dirección de destino para reservas móviles
   notes: z.string().optional(),
 });
 

@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import type {
   AppointmentAdminDto,
   PublicCompanyDto,
+  PublicLocationDto,
   PublicServiceDto,
   PublicStaffDto,
   SlotDto,
@@ -66,8 +67,25 @@ export class ApiService {
   }
 
   // 2. Catálogo de servicios
-  getServices(slug: string): Observable<ApiResponse<PublicServiceDto[]>> {
-    return this.http.get<ApiResponse<PublicServiceDto[]>>(`${this.baseUrl}/public/${slug}/services`);
+  getServices(
+    slug: string,
+    locationId?: number | null,
+  ): Observable<ApiResponse<PublicServiceDto[]>> {
+    const params: Record<string, string> = {};
+    if (locationId) {
+      params['locationId'] = String(locationId);
+    }
+    return this.http.get<ApiResponse<PublicServiceDto[]>>(
+      `${this.baseUrl}/public/${slug}/services`,
+      { params },
+    );
+  }
+
+  // 2b. Ubicaciones públicas de la empresa
+  getPublicLocations(slug: string): Observable<ApiResponse<PublicLocationDto[]>> {
+    return this.http.get<ApiResponse<PublicLocationDto[]>>(
+      `${this.baseUrl}/public/${slug}/locations`,
+    );
   }
 
   // 3. Staff disponible
@@ -81,6 +99,7 @@ export class ApiService {
     serviceId: number,
     date: string,
     staffId?: number | null,
+    locationId?: number | null,
   ): Observable<ApiResponse<{ date: string; timezone: string; slots: SlotDto[] }>> {
     const params: Record<string, string> = {
       serviceId: String(serviceId),
@@ -88,6 +107,9 @@ export class ApiService {
     };
     if (staffId) {
       params['staffId'] = String(staffId);
+    }
+    if (locationId) {
+      params['locationId'] = String(locationId);
     }
     return this.http.get<ApiResponse<{ date: string; timezone: string; slots: SlotDto[] }>>(
       `${this.baseUrl}/public/${slug}/availability`,

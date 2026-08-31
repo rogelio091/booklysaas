@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { ThemeService, BooklyTheme } from '../../core/theme/theme.service';
 import type {
   PublicCompanyDto,
+  PublicLocationDto,
   PublicServiceDto,
   PublicStaffDto,
   SlotDto,
@@ -18,6 +19,23 @@ interface ClientCalendarDay {
   isToday: boolean;
   isPast: boolean;
 }
+
+type WizardStep = 'location' | 'service' | 'staff' | 'datetime' | 'data';
+
+interface BookingConfirmation {
+  appointmentId: number;
+  status: string;
+  customerName: string;
+  serviceName: string;
+}
+
+const STEP_LABELS: Record<WizardStep, string> = {
+  location: 'Ubicación',
+  service: 'Servicio',
+  staff: 'Especialista',
+  datetime: 'Horario',
+  data: 'Datos',
+};
 
 const CLIENT_MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -78,7 +96,7 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
   template: `
     <div class="wizard-shell">
       <div class="dark-glass-card">
-        
+
         <!-- Tenant Hero Header -->
         <header class="tenant-hero">
           <div class="theme-quick-switch">
@@ -98,210 +116,251 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
 
         <!-- Stepper Indicators -->
         <nav class="stepper-bar">
-          <div class="step-node" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
-            <div class="node-icon">{{ currentStep() > 1 ? '✓' : '1' }}</div>
-            <span>Servicio</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step-node" [class.active]="currentStep() === 2" [class.done]="currentStep() > 2">
-            <div class="node-icon">{{ currentStep() > 2 ? '✓' : '2' }}</div>
-            <span>Especialista</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step-node" [class.active]="currentStep() === 3" [class.done]="currentStep() > 3">
-            <div class="node-icon">{{ currentStep() > 3 ? '✓' : '3' }}</div>
-            <span>Horario</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step-node" [class.active]="currentStep() === 4" [class.done]="currentStep() > 4">
-            <div class="node-icon">{{ currentStep() > 4 ? '✓' : '4' }}</div>
-            <span>Datos</span>
-          </div>
+          @for (step of stepOrder(); track step; let i = $index; let last = $last) {
+            <div class="step-node" [class.active]="currentIndex() === i" [class.done]="currentIndex() > i">
+              <div class="node-icon">{{ currentIndex() > i ? '✓' : (i + 1) }}</div>
+              <span>{{ stepLabel(step) }}</span>
+            </div>
+            @if (!last) {
+              <div class="step-line"></div>
+            }
+          }
         </nav>
 
         <!-- Main Step Content -->
         <main class="step-body">
-          
-          <!-- STEP 1: SERVICIO -->
-          @if (currentStep() === 1) {
-            <section class="step-section">
-              <h2 class="section-title">Selecciona un Servicio</h2>
-              <p class="section-desc">Elige el servicio que deseas agendar para continuar</p>
 
-              <div class="card-list">
-                @for (service of services(); track service.id) {
-                  <div
-                    class="option-card"
-                    [class.selected]="selectedService()?.id === service.id"
-                    (click)="selectService(service)"
-                  >
-                    <div class="option-info">
-                      <h3>{{ service.name }}</h3>
-                      <p>⏱ {{ service.durationMinutes }} min · {{ service.description || 'Atención profesional' }}</p>
-                    </div>
-                    <div class="option-price">
-                      Q{{ (service.priceQtz / 100).toFixed(2) }}
-                    </div>
+          @if (!isSuccess()) {
+            @switch (currentStep()) {
+              <!-- STEP: UBICACIÓN -->
+              @case ('location') {
+                <section class="step-section">
+                  <h2 class="section-title">Elige tu Ubicación</h2>
+                  <p class="section-desc">Selecciona dónde deseas recibir la atención</p>
+
+                  <div class="card-list">
+                    @for (location of locations(); track location.id) {
+                      <div
+                        class="option-card"
+                        [class.selected]="selectedLocation()?.id === location.id"
+                        (click)="selectLocation(location)"
+                      >
+                        <div class="option-info">
+                          <h3>{{ location.name }}</h3>
+                          <p>
+                            <span class="location-type-badge" [class.mobile]="location.type === 'mobile'">
+                              {{ location.type === 'mobile' ? '🚗 A domicilio' : '📍 En tu local' }}
+                            </span>
+                            @if (location.address) { · {{ location.address }} }
+                            @if (location.serviceRadiusKm) { · Hasta {{ location.serviceRadiusKm }} km }
+                          </p>
+                        </div>
+                      </div>
+                    } @empty {
+                      <div class="empty-msg">No hay ubicaciones disponibles.</div>
+                    }
                   </div>
-                } @empty {
-                  <div class="empty-msg">No hay servicios disponibles en este momento.</div>
-                }
-              </div>
-            </section>
-          }
+                </section>
+              }
 
-          <!-- STEP 2: ESPECIALISTA -->
-          @if (currentStep() === 2) {
-            <section class="step-section">
-              <h2 class="section-title">¿Quién deseas que te atienda?</h2>
-              <p class="section-desc">Selecciona un profesional o elige el horario más próximo</p>
+              <!-- STEP: SERVICIO -->
+              @case ('service') {
+                <section class="step-section">
+                  <h2 class="section-title">Selecciona un Servicio</h2>
+                  <p class="section-desc">Elige el servicio que deseas agendar para continuar</p>
 
-              <div class="card-list">
-                <!-- Opción Cualquiera disponible -->
-                <div
-                  class="option-card"
-                  [class.selected]="selectedStaff() === null"
-                  (click)="selectStaff(null)"
-                >
-                  <div class="staff-flex">
-                    <div class="staff-avatar-glow">⚡</div>
-                    <div class="option-info">
-                      <h3>Cualquiera disponible</h3>
-                      <p>Recomendado · Acceso a horarios más próximos</p>
-                    </div>
+                  <div class="card-list">
+                    @for (service of services(); track service.id) {
+                      <div
+                        class="option-card"
+                        [class.selected]="selectedService()?.id === service.id"
+                        (click)="selectService(service)"
+                      >
+                        <div class="option-info">
+                          <h3>{{ service.name }}</h3>
+                          <p>⏱ {{ service.durationMinutes }} min · {{ service.description || 'Atención profesional' }}</p>
+                        </div>
+                        <div class="option-price">
+                          Q{{ (service.priceQtz / 100).toFixed(2) }}
+                        </div>
+                      </div>
+                    } @empty {
+                      <div class="empty-msg">No hay servicios disponibles en este momento.</div>
+                    }
                   </div>
-                </div>
+                </section>
+              }
 
-                @for (member of staffList(); track member.id) {
-                  <div
-                    class="option-card"
-                    [class.selected]="selectedStaff()?.id === member.id"
-                    (click)="selectStaff(member)"
-                  >
-                    <div class="staff-flex">
-                      <div class="staff-avatar-glow">👨‍⚕️</div>
-                      <div class="option-info">
-                        <h3>{{ member.name }}</h3>
-                        <p>Especialista en atención personalizada</p>
+              <!-- STEP: ESPECIALISTA -->
+              @case ('staff') {
+                <section class="step-section">
+                  <h2 class="section-title">¿Quién deseas que te atienda?</h2>
+                  <p class="section-desc">Selecciona un profesional o elige el horario más próximo</p>
+
+                  <div class="card-list">
+                    <!-- Opción Cualquiera disponible -->
+                    <div
+                      class="option-card"
+                      [class.selected]="selectedStaff() === null"
+                      (click)="selectStaff(null)"
+                    >
+                      <div class="staff-flex">
+                        <div class="staff-avatar-glow">⚡</div>
+                        <div class="option-info">
+                          <h3>Cualquiera disponible</h3>
+                          <p>Recomendado · Acceso a horarios más próximos</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                }
-              </div>
-            </section>
-          }
 
-          <!-- STEP 3: CALENDARIO Y SLOTS -->
-          @if (currentStep() === 3) {
-            <section class="step-section">
-              <h2 class="section-title">Elige Fecha y Horario</h2>
-              <p class="section-desc">Disponibilidad calculada en tiempo real por el Slot Engine</p>
-
-              <!-- Calendario Mensual -->
-              <div class="calendar-box">
-                <div class="calendar-header">
-                  <button type="button" class="cal-nav" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
-                  <span class="calendar-month">{{ monthLabel() }}</span>
-                  <button type="button" class="cal-nav" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
-                </div>
-                <div class="calendar-weekdays">
-                  @for (w of weekdayHeader; track w) {
-                    <span class="cal-weekday">{{ w }}</span>
-                  }
-                </div>
-                <div class="calendar-grid">
-                  @for (cell of calendarCells(); track $index) {
-                    @if (cell) {
-                      <button
-                        type="button"
-                        class="calendar-day"
-                        [class.selected]="selectedDate() === cell.dateStr"
-                        [class.today]="cell.isToday"
-                        [class.is-past]="cell.isPast"
-                        [disabled]="cell.isPast"
-                        (click)="selectDate(cell.dateStr)"
-                      >{{ cell.dayNumber }}</button>
-                    } @else {
-                      <span class="calendar-day empty"></span>
+                    @for (member of staffList(); track member.id) {
+                      <div
+                        class="option-card"
+                        [class.selected]="selectedStaff()?.id === member.id"
+                        (click)="selectStaff(member)"
+                      >
+                        <div class="staff-flex">
+                          <div class="staff-avatar-glow">👨‍⚕️</div>
+                          <div class="option-info">
+                            <h3>{{ member.name }}</h3>
+                            <p>Especialista en atención personalizada</p>
+                          </div>
+                        </div>
+                      </div>
                     }
-                  }
-                </div>
-              </div>
-
-              <!-- Lista de Slots -->
-              <label class="slot-label">Horarios disponibles:</label>
-              @if (loadingSlots()) {
-                <div class="empty-msg">Consultando disponibilidad...</div>
-              } @else {
-                <div class="slots-grid">
-                  @for (slot of availableSlots(); track slot.startAt) {
-                    <button
-                      type="button"
-                      class="slot-btn"
-                      [class.active]="selectedSlot()?.startAt === slot.startAt"
-                      (click)="selectSlot(slot)"
-                    >
-                      {{ slot.startAt | date:'shortTime' }}
-                    </button>
-                  } @empty {
-                    <div class="empty-msg col-span-3">No hay horarios libres para esta fecha. Intenta otro día.</div>
-                  }
-                </div>
+                  </div>
+                </section>
               }
-            </section>
-          }
 
-          <!-- STEP 4: DATOS DEL CLIENTE -->
-          @if (currentStep() === 4) {
-            <section class="step-section">
-              <h2 class="section-title">Tus Datos de Contacto</h2>
-              <p class="section-desc">Confirmación instantánea sin crear contraseñas</p>
+              <!-- STEP: CALENDARIO Y SLOTS -->
+              @case ('datetime') {
+                <section class="step-section">
+                  <h2 class="section-title">Elige Fecha y Horario</h2>
+                  <p class="section-desc">Disponibilidad calculada en tiempo real por el Slot Engine</p>
 
-              <!-- Resumen de Cita -->
-              <div class="summary-box">
-                <div class="sum-row">
-                  <span>Servicio:</span>
-                  <strong>{{ selectedService()?.name }}</strong>
-                </div>
-                <div class="sum-row">
-                  <span>Especialista:</span>
-                  <strong>{{ selectedStaff() ? selectedStaff()?.name : 'Cualquiera disponible' }}</strong>
-                </div>
-                <div class="sum-row">
-                  <span>Fecha y Hora:</span>
-                  <strong>{{ selectedSlot()?.startAt | date:'medium' }}</strong>
-                </div>
-                <div class="sum-row total">
-                  <span>Total:</span>
-                  <span>Q{{ ((selectedService()?.priceQtz || 0) / 100).toFixed(2) }}</span>
-                </div>
-              </div>
+                  <!-- Calendario Mensual -->
+                  <div class="calendar-box">
+                    <div class="calendar-header">
+                      <button type="button" class="cal-nav" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
+                      <span class="calendar-month">{{ monthLabel() }}</span>
+                      <button type="button" class="cal-nav" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+                    </div>
+                    <div class="calendar-weekdays">
+                      @for (w of weekdayHeader; track w) {
+                        <span class="cal-weekday">{{ w }}</span>
+                      }
+                    </div>
+                    <div class="calendar-grid">
+                      @for (cell of calendarCells(); track $index) {
+                        @if (cell) {
+                          <button
+                            type="button"
+                            class="calendar-day"
+                            [class.selected]="selectedDate() === cell.dateStr"
+                            [class.today]="cell.isToday"
+                            [class.is-past]="cell.isPast"
+                            [disabled]="cell.isPast"
+                            (click)="selectDate(cell.dateStr)"
+                          >{{ cell.dayNumber }}</button>
+                        } @else {
+                          <span class="calendar-day empty"></span>
+                        }
+                      }
+                    </div>
+                  </div>
 
-              <!-- Formulario -->
-              <form class="contact-form">
-                <div class="form-field">
-                  <label>Nombre y Apellido *</label>
-                  <input type="text" [(ngModel)]="customerName" name="name" placeholder="Ej. Juan Pérez" required />
-                </div>
-                <div class="form-field">
-                  <label>WhatsApp / Teléfono Móvil *</label>
-                  <input type="tel" [(ngModel)]="customerPhone" name="phone" placeholder="+502 0000-0000" required />
-                </div>
-                <div class="form-field">
-                  <label>Correo Electrónico *</label>
-                  <input type="email" [(ngModel)]="customerEmail" name="email" placeholder="correo@ejemplo.com" required />
-                </div>
-              </form>
-            </section>
-          }
+                  <!-- Lista de Slots -->
+                  <label class="slot-label">Horarios disponibles:</label>
+                  @if (loadingSlots()) {
+                    <div class="empty-msg">Consultando disponibilidad...</div>
+                  } @else {
+                    <div class="slots-grid">
+                      @for (slot of availableSlots(); track slot.startAt) {
+                        <button
+                          type="button"
+                          class="slot-btn"
+                          [class.active]="selectedSlot()?.startAt === slot.startAt"
+                          (click)="selectSlot(slot)"
+                        >
+                          {{ slot.startAt | date:'shortTime' }}
+                        </button>
+                      } @empty {
+                        <div class="empty-msg col-span-3">No hay horarios libres para esta fecha. Intenta otro día.</div>
+                      }
+                    </div>
+                  }
+                </section>
+              }
 
-          <!-- CONFIRMACIÓN DE ÉXITO -->
-          @if (currentStep() === 5) {
+              <!-- STEP: DATOS DEL CLIENTE -->
+              @case ('data') {
+                <section class="step-section">
+                  <h2 class="section-title">Tus Datos de Contacto</h2>
+                  <p class="section-desc">
+                    {{ isMobileLocation() ? 'Solicitud sujeta a confirmación del negocio' : 'Confirmación instantánea sin crear contraseñas' }}
+                  </p>
+
+                  <!-- Resumen de Cita -->
+                  <div class="summary-box">
+                    @if (selectedLocation()) {
+                      <div class="sum-row">
+                        <span>Ubicación:</span>
+                        <strong>{{ selectedLocation()?.name }}</strong>
+                      </div>
+                    }
+                    <div class="sum-row">
+                      <span>Servicio:</span>
+                      <strong>{{ selectedService()?.name }}</strong>
+                    </div>
+                    <div class="sum-row">
+                      <span>Especialista:</span>
+                      <strong>{{ selectedStaff() ? selectedStaff()?.name : 'Cualquiera disponible' }}</strong>
+                    </div>
+                    <div class="sum-row">
+                      <span>Fecha y Hora:</span>
+                      <strong>{{ selectedSlot()?.startAt | date:'medium' }}</strong>
+                    </div>
+                    <div class="sum-row total">
+                      <span>Total:</span>
+                      <span>Q{{ ((selectedService()?.priceQtz || 0) / 100).toFixed(2) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Formulario -->
+                  <form class="contact-form">
+                    <div class="form-field">
+                      <label>Nombre y Apellido *</label>
+                      <input type="text" [(ngModel)]="customerName" name="name" placeholder="Ej. Juan Pérez" required />
+                    </div>
+                    <div class="form-field">
+                      <label>WhatsApp / Teléfono Móvil *</label>
+                      <input type="tel" [(ngModel)]="customerPhone" name="phone" placeholder="+502 0000-0000" required />
+                    </div>
+                    <div class="form-field">
+                      <label>Correo Electrónico *</label>
+                      <input type="email" [(ngModel)]="customerEmail" name="email" placeholder="correo@ejemplo.com" required />
+                    </div>
+                    @if (isMobileLocation()) {
+                      <div class="form-field">
+                        <label>Dirección de destino (A domicilio) *</label>
+                        <input type="text" [(ngModel)]="customerAddress" name="address" placeholder="Calle, zona, referencias..." required />
+                      </div>
+                    }
+                  </form>
+                </section>
+              }
+            }
+          } @else {
+            <!-- CONFIRMACIÓN DE ÉXITO -->
             <section class="success-section">
-              <div class="beacon-glow">✓</div>
-              <h2>¡Cita Confirmada con Éxito!</h2>
+              <div class="beacon-glow">{{ confirmedAppointment()?.status === 'pending' ? '⏳' : '✓' }}</div>
+              <h2>{{ confirmedAppointment()?.status === 'pending' ? '¡Solicitud Recibida!' : '¡Cita Confirmada con Éxito!' }}</h2>
               <p class="success-desc">
-                Te enviamos un correo electrónico con los detalles y el archivo de Google/Apple Calendar.
+                @if (confirmedAppointment()?.status === 'pending') {
+                  Tu solicitud fue enviada. El negocio confirmará el horario y te contactará por WhatsApp/correo.
+                } @else {
+                  Te enviamos un correo electrónico con los detalles y el archivo de Google/Apple Calendar.
+                }
               </p>
 
               <div class="summary-box">
@@ -328,12 +387,12 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
         </main>
 
         <!-- Footer Actions -->
-        @if (currentStep() <= 4) {
+        @if (!isSuccess()) {
           <footer class="wizard-footer">
             <button
               type="button"
               class="btn-secondary"
-              [style.visibility]="currentStep() > 1 ? 'visible' : 'hidden'"
+              [style.visibility]="currentIndex() > 0 ? 'visible' : 'hidden'"
               (click)="prevStep()"
             >
               ← Anterior
@@ -345,7 +404,7 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
               [disabled]="!canProceed()"
               (click)="nextStep()"
             >
-              {{ currentStep() === 4 ? (submitting() ? 'Confirmando...' : 'Confirmar Reserva ✨') : 'Continuar →' }}
+              {{ primaryActionLabel() }}
             </button>
           </footer>
         }
@@ -452,6 +511,7 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
       justify-content: center;
       font-size: 0.75rem;
       font-weight: 700;
+      flex-shrink: 0;
     }
     .step-line {
       flex: 1;
@@ -492,6 +552,21 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
       p { font-size: 0.8rem; color: var(--color-text-muted); }
     }
     .option-price { font-size: 1.05rem; font-weight: 800; color: var(--color-primary); }
+    .location-type-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: var(--radius-full);
+      font-size: 0.72rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--color-border-highlight);
+      color: var(--color-text);
+      &.mobile {
+        background: var(--color-accent-bg, rgba(56, 189, 248, 0.12));
+        border-color: rgba(56, 189, 248, 0.35);
+        color: var(--color-accent, #38bdf8);
+      }
+    }
     .staff-flex { display: flex; align-items: center; gap: 0.85rem; }
     .staff-avatar-glow {
       width: 44px;
@@ -706,11 +781,13 @@ export class BookingComponent implements OnInit {
 
   protected readonly slug = signal<string>('demo');
   protected readonly company = signal<PublicCompanyDto | null>(null);
+  protected readonly locations = signal<PublicLocationDto[]>([]);
+  protected readonly selectedLocation = signal<PublicLocationDto | null>(null);
   protected readonly services = signal<PublicServiceDto[]>([]);
   protected readonly staffList = signal<PublicStaffDto[]>([]);
   protected readonly availableSlots = signal<SlotDto[]>([]);
 
-  protected readonly currentStep = signal<number>(1);
+  protected readonly currentIndex = signal<number>(0);
   protected readonly selectedService = signal<PublicServiceDto | null>(null);
   protected readonly selectedStaff = signal<PublicStaffDto | null>(null);
   protected readonly selectedDate = signal<string>('');
@@ -724,13 +801,32 @@ export class BookingComponent implements OnInit {
   protected readonly loading = signal(true);
   protected readonly loadingSlots = signal(false);
   protected readonly submitting = signal(false);
-  protected readonly confirmedAppointment = signal<{ appointmentId: number; customerName: string; serviceName: string } | null>(null);
+  protected readonly confirmedAppointment = signal<BookingConfirmation | null>(null);
 
   protected customerName = '';
   protected customerPhone = '';
   protected customerEmail = '';
+  protected customerAddress = '';
 
   protected readonly weekdayHeader = CLIENT_WEEKDAYS;
+
+  protected readonly needsLocationStep = computed(() => this.locations().length > 1);
+  protected readonly isMobileLocation = computed(() => this.selectedLocation()?.type === 'mobile');
+
+  protected readonly stepOrder = computed<WizardStep[]>(() => {
+    const steps: WizardStep[] = [];
+    if (this.needsLocationStep()) {
+      steps.push('location');
+    }
+    steps.push('service', 'staff', 'datetime', 'data');
+    return steps;
+  });
+
+  protected readonly currentStep = computed<WizardStep | null>(() =>
+    this.stepOrder()[this.currentIndex()] ?? null,
+  );
+
+  protected readonly isSuccess = computed(() => this.currentIndex() >= this.stepOrder().length);
 
   protected readonly todayStr = computed(() =>
     toDateStrInTz(new Date(), this.timezone()),
@@ -747,18 +843,37 @@ export class BookingComponent implements OnInit {
 
   protected readonly canProceed = computed(() => {
     switch (this.currentStep()) {
-      case 1: return !!this.selectedService();
-      case 2: return true; // null significa "cualquiera"
-      case 3: return !!this.selectedSlot();
-      case 4: return this.customerName.trim().length >= 2 && this.customerPhone.trim().length >= 8 && this.customerEmail.includes('@');
+      case 'location': return !!this.selectedLocation();
+      case 'service': return !!this.selectedService();
+      case 'staff': return true; // null significa "cualquiera"
+      case 'datetime': return !!this.selectedSlot();
+      case 'data':
+        return this.customerName.trim().length >= 2
+          && this.customerPhone.trim().length >= 8
+          && this.customerEmail.includes('@')
+          && (!this.isMobileLocation() || this.customerAddress.trim().length >= 5);
       default: return true;
     }
+  });
+
+  protected readonly primaryActionLabel = computed(() => {
+    if (this.currentStep() !== 'data') {
+      return 'Continuar →';
+    }
+    if (this.submitting()) {
+      return 'Confirmando...';
+    }
+    return this.isMobileLocation() ? 'Enviar Solicitud ✨' : 'Confirmar Reserva ✨';
   });
 
   ngOnInit() {
     const routeSlug = this.route.snapshot.paramMap.get('slug') || 'demo';
     this.slug.set(routeSlug);
     this.loadInitialData(routeSlug);
+  }
+
+  protected stepLabel(step: WizardStep): string {
+    return STEP_LABELS[step];
   }
 
   private loadInitialData(slug: string) {
@@ -773,7 +888,7 @@ export class BookingComponent implements OnInit {
           const [year, month] = todayStr.split('-').map((n) => Number(n));
           this.monthCursor.set({ year, month: month - 1 });
           this.selectedDate.set(todayStr);
-          this.loadServicesAndStaff(slug);
+          this.loadLocations(slug);
         } else {
           this.loading.set(false);
         }
@@ -784,8 +899,27 @@ export class BookingComponent implements OnInit {
     });
   }
 
+  private loadLocations(slug: string) {
+    this.api.getPublicLocations(slug).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          this.locations.set(res.data);
+          // Con una única ubicación se usa por defecto sin mostrar el paso.
+          if (res.data.length === 1) {
+            this.selectedLocation.set(res.data[0]);
+          }
+        }
+        this.loadServicesAndStaff(slug);
+      },
+      error: () => {
+        // Si el endpoint no existe, el wizard sigue funcionando sin paso de ubicación.
+        this.loadServicesAndStaff(slug);
+      }
+    });
+  }
+
   private loadServicesAndStaff(slug: string) {
-    this.api.getServices(slug).subscribe({
+    this.api.getServices(slug, this.selectedLocation()?.id).subscribe({
       next: (res) => {
         if (res.success && res.data) {
           this.services.set(res.data);
@@ -805,11 +939,24 @@ export class BookingComponent implements OnInit {
         }
       }
     });
-
   }
 
   changeTheme(theme: BooklyTheme) {
     this.themeService.setTheme(theme);
+  }
+
+  selectLocation(location: PublicLocationDto) {
+    if (this.selectedLocation()?.id === location.id) {
+      return;
+    }
+    this.selectedLocation.set(location);
+    // Reiniciar dependencias al cambiar de ubicación y recargar servicios.
+    this.selectedService.set(null);
+    this.selectedStaff.set(null);
+    this.selectedSlot.set(null);
+    this.availableSlots.set([]);
+    this.services.set([]);
+    this.loadServicesAndStaff(this.slug());
   }
 
   selectService(service: PublicServiceDto) {
@@ -843,7 +990,13 @@ export class BookingComponent implements OnInit {
     if (!srv || !date) return;
 
     this.loadingSlots.set(true);
-    this.api.getAvailability(this.slug(), srv.id, date, this.selectedStaff()?.id).subscribe({
+    this.api.getAvailability(
+      this.slug(),
+      srv.id,
+      date,
+      this.selectedStaff()?.id,
+      this.selectedLocation()?.id,
+    ).subscribe({
       next: (res) => {
         if (res.success && res.data?.slots) {
           this.availableSlots.set(res.data.slots);
@@ -862,21 +1015,21 @@ export class BookingComponent implements OnInit {
   }
 
   nextStep() {
-    if (this.currentStep() === 2) {
+    if (this.currentStep() === 'staff') {
       this.fetchSlots();
     }
 
-    if (this.currentStep() === 4) {
+    if (this.currentStep() === 'data') {
       this.submitBooking();
       return;
     }
 
-    this.currentStep.update((s) => s + 1);
+    this.currentIndex.update((i) => i + 1);
   }
 
   prevStep() {
-    if (this.currentStep() > 1) {
-      this.currentStep.update((s) => s - 1);
+    if (this.currentIndex() > 0) {
+      this.currentIndex.update((i) => i - 1);
     }
   }
 
@@ -888,10 +1041,12 @@ export class BookingComponent implements OnInit {
     const payload: CreateBookingDto = {
       serviceId: srv.id,
       staffId: this.selectedStaff()?.id ?? null,
+      locationId: this.selectedLocation()?.id ?? null,
       startAt: slot.startAt,
       customerName: this.customerName,
       customerPhone: this.customerPhone,
       customerEmail: this.customerEmail,
+      customerAddress: this.isMobileLocation() ? this.customerAddress : undefined,
     };
 
     this.submitting.set(true);
@@ -900,7 +1055,7 @@ export class BookingComponent implements OnInit {
         this.submitting.set(false);
         if (res.success && res.data) {
           this.confirmedAppointment.set(res.data);
-          this.currentStep.set(5);
+          this.currentIndex.set(this.stepOrder().length);
         }
       },
       error: () => {
@@ -910,7 +1065,7 @@ export class BookingComponent implements OnInit {
   }
 
   resetWizard() {
-    this.currentStep.set(1);
+    this.currentIndex.set(0);
     this.selectedSlot.set(null);
     this.confirmedAppointment.set(null);
   }

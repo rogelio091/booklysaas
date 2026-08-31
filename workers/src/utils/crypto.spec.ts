@@ -29,7 +29,10 @@ describe('Symmetric encryption (AES-GCM + HKDF)', () => {
     const ciphertext = await encryptSecret('top-secret', key);
 
     // Flip the last character of the ciphertext blob (tampering).
-    const tampered = ciphertext.slice(0, -1) + (ciphertext.endsWith('A') ? 'B' : 'A');
+    // Corrupt a byte in the MIDDLE (the last char may land on base64url padding).
+    const mid = Math.floor(ciphertext.length / 2);
+    const flip = ciphertext[mid] === 'A' ? 'B' : 'A';
+    const tampered = ciphertext.slice(0, mid) + flip + ciphertext.slice(mid + 1);
 
     await expect(decryptSecret(tampered, key)).rejects.toThrow();
   });

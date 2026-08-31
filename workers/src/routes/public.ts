@@ -12,6 +12,8 @@ import {
   workingHours,
   blockedSlots,
   staffLocations,
+  locations,
+  serviceLocations,
 } from '../db/schema';
 import { computeAvailability } from '../services/slot-engine';
 import { sendAppointmentConfirmationEmail } from '../services/notification';
@@ -50,6 +52,39 @@ publicRoutes.get('/:slug/company', async (c) => {
   return c.json({ success: true, data: company });
 });
 
+// 1b. Obtener ubicaciones públicas activas de la empresa
+publicRoutes.get('/:slug/locations', async (c) => {
+  const { slug } = c.req.param();
+  const db = c.get('db');
+
+  const company = await db.query.companies.findFirst({
+    where: eq(companies.slug, slug),
+    columns: { id: true },
+  });
+
+  if (!company) {
+    return c.json(
+      { success: false, error: { code: 'NOT_FOUND', message: 'Empresa no encontrada' } },
+      404,
+    );
+  }
+
+  const locationList = await db.query.locations.findMany({
+    where: and(eq(locations.companyId, company.id), eq(locations.isActive, true)),
+    columns: {
+      id: true,
+      name: true,
+      address: true,
+      slug: true,
+      type: true,
+      serviceRadiusKm: true,
+    },
+    orderBy: [asc(locations.id)],
+  });
+
+  return c.json({ success: true, data: locationList });
+});
+
 // 2. Obtener catálogo de servicios activos
 publicRoutes.get('/:slug/services', async (c) => {
   const { slug } = c.req.param();
@@ -79,7 +114,26 @@ publicRoutes.get('/:slug/services', async (c) => {
     orderBy: [asc(services.displayOrder)],
   });
 
-  return c.json({ success: true, data: activeServices });
+  // Filtro opcional por ubicación vía pivot service_locations.
+  const locationIdRaw = c.req.query('locationId');
+  const locationId = locationIdRaw ? Number(locationIdRaw) : null;
+
+  let result = activeServices;
+  if (locationId != null && Number.isInteger(locationId) && locationId > 0) {
+    const relations = await db.query.serviceLocations.findMany({
+      where: and(
+        eq(serviceLocations.companyId, company.id),
+        eq(serviceLocations.locationId, locationId),
+      ),
+    });
+
+    if (relations.length > 0) {
+      const serviceIds = new Set(relations.map((r) => r.serviceId));
+      result = activeServices.filter((s) => serviceIds.has(s.id));
+    }
+  }
+
+  return c.json({ success: true, data: result });
 });
 
 // 3. Obtener staff disponible
@@ -283,6 +337,22 @@ publicRoutes.post(
 
     const endAt = body.startAt + service.durationMinutes * 60 * 1000;
 
+    // Reservas móviles quedan 'pending' (confirmación manual del negocio).
+    let status: 'confirmed' | 'pending' = 'confirmed';
+    if (body.locationId != null) {
+      const location = await db.query.locations.findFirst({
+        where: and(eq(locations.companyId, company.id), eq(locations.id, body.locationId)),
+      });
+      if (location?.type === 'mobile') {
+        status = 'pending';
+      }
+    }
+
+    // Dirección de destino (móvil) se persiste en notes ya que no hay columna dedicada.
+    const notes = body.customerAddress
+      ? `Dirección: ${body.customerAddress}` + (body.notes ? ` · ${body.notes}` : '')
+      : body.notes;
+
     // 2. Insertar cita
     const [appointment] = await db
       .insert(appointments)
@@ -291,12 +361,12 @@ publicRoutes.post(
         customerId: customer.id,
         staffId: body.staffId ?? null,
         locationId: body.locationId ?? null,
-        status: 'confirmed',
+        status,
         startAt: new Date(body.startAt),
         endAt: new Date(endAt),
         bufferMinutes: service.bufferAfterMinutes,
         source: 'public_portal',
-        notes: body.notes,
+        notes,
       })
       .returning();
 
