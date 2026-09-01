@@ -23,6 +23,8 @@ import type {
   LocationResponseDto,
   CreateLocationDto,
   UpdateLocationDto,
+  BlockedSlotResponseDto,
+  CreateBlockedSlotDto,
 } from '@bookly/contracts';
 
 interface ApiResponse<T> {
@@ -39,6 +41,19 @@ export interface LocationStaffDto {
   id: number;
   name: string;
   email: string;
+}
+
+// Respuesta de creación de bloqueo (POST /schedule/blocks)
+export interface BlockCreateResponse {
+  success: boolean;
+  data: BlockedSlotResponseDto;
+  warnings: {
+    affectedAppointments: number;
+  };
+  error?: {
+    code: string;
+    message: string;
+  };
 }
 
 // Elemento de horario laboral devuelto por el backend (GET /schedule/working-hours)
@@ -238,6 +253,34 @@ export class ApiService {
     return this.http.post<ApiResponse<{ staffIds: number[] }>>(
       `${this.baseUrl}/locations/${id}/staff`,
       { staffIds },
+    );
+  }
+
+  // 16. Bloqueos de disponibilidad (admin, autenticado)
+  getBlocks(
+    from?: number,
+    to?: number,
+  ): Observable<ApiResponse<BlockedSlotResponseDto[]>> {
+    const params: Record<string, string> = {};
+    if (from !== undefined) {
+      params['from'] = String(from);
+    }
+    if (to !== undefined) {
+      params['to'] = String(to);
+    }
+    return this.http.get<ApiResponse<BlockedSlotResponseDto[]>>(
+      `${this.baseUrl}/schedule/blocks`,
+      { params },
+    );
+  }
+
+  createBlock(data: CreateBlockedSlotDto): Observable<BlockCreateResponse> {
+    return this.http.post<BlockCreateResponse>(`${this.baseUrl}/schedule/blocks`, data);
+  }
+
+  deleteBlock(id: number): Observable<ApiResponse<BlockedSlotResponseDto>> {
+    return this.http.delete<ApiResponse<BlockedSlotResponseDto>>(
+      `${this.baseUrl}/schedule/blocks/${id}`,
     );
   }
 }

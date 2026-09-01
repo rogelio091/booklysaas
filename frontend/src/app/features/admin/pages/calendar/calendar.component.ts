@@ -8,7 +8,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import type { AppointmentAdminDto } from '@bookly/contracts';
+import type { AppointmentAdminDto, BlockedSlotResponseDto } from '@bookly/contracts';
+import { ApiService } from '../../../../core/services/api.service';
 import { AppointmentCreateComponent } from '../../components/appointment-create/appointment-create.component';
 import { AppointmentDetailComponent } from '../../components/appointment-detail/appointment-detail.component';
 
@@ -99,6 +100,24 @@ function buildWeekDays(anchor: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }
 
+function buildBlockedDayMap(blocks: BlockedSlotResponseDto[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const b of blocks) {
+    const start = new Date(b.startAt);
+    const end = new Date(b.endAt);
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    const reason = b.reason?.trim() || 'Bloqueado';
+    while (cursor.getTime() <= endDay.getTime()) {
+      const k = toDayKey(cursor);
+      const existing = map.get(k);
+      map.set(k, existing ? `${existing}; ${reason}` : reason);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+  return map;
+}
+
 @Component({
   selector: 'app-calendar-page',
   standalone: true,
@@ -113,7 +132,7 @@ function buildWeekDays(anchor: Date): Date[] {
         </div>
         <div class="header-actions">
           <button (click)="showCreateModal.set(true)" class="btn-primary-glow">+ Nueva Cita</button>
-          <button (click)="loadAppointments()" class="btn-glass">🔄 Actualizar</button>
+          <button (click)="refresh()" class="btn-glass">🔄 Actualizar</button>
         </div>
       </header>
 
@@ -152,6 +171,8 @@ function buildWeekDays(anchor: Date): Date[] {
                       [class.outside]="!day.inCurrentMonth"
                       [class.today]="day.isToday"
                       [class.has-apt]="day.count > 0"
+                      [class.is-blocked]="isBlocked(day.dayKey)"
+                      [attr.title]="blockedTooltip(day.dayKey)"
                       (click)="goDay(day.date)"
                     >
                       <span class="day-num">{{ day.dayNumber }}</span>
@@ -174,6 +195,12 @@ function buildWeekDays(anchor: Date): Date[] {
                       <span class="week-date">{{ day.getDate() }}</span>
                     </div>
                     <div class="week-col-body">
+                      @for (b of blocksOn(dayKey(day)); track b.id) {
+                        <div class="block-chip" [title]="b.reason ?? ''">
+                          <strong>{{ b.startAt | date: 'shortTime' }} – {{ b.endAt | date: 'shortTime' }}</strong>
+                          <span>{{ b.reason || 'Bloqueado' }}</span>
+                        </div>
+                      }
                       @for (a of appointmentsOn(dayKey(day)); track a.id) {
                         <div
                           class="apt-chip"
@@ -194,6 +221,17 @@ function buildWeekDays(anchor: Date): Date[] {
           }
           @case ('day') {
             <div class="day-card glass-card">
+              @if (dayBlocks().length > 0) {
+                <div class="blocked-section">
+                  <div class="blocked-title">Bloqueos del día</div>
+                  @for (b of dayBlocks(); track b.id) {
+                    <div class="block-chip wide" [title]="b.reason ?? ''">
+                      <strong>{{ b.startAt | date: 'shortTime' }} – {{ b.endAt | date: 'shortTime' }}</strong>
+                      <span>{{ b.reason || 'Bloqueado' }}</span>
+                    </div>
+                  }
+                </div>
+              }
               @if (dayAppointments().length === 0) {
                 <div class="state-box">Sin citas para este día.</div>
               } @else {
@@ -425,6 +463,10 @@ function buildWeekDays(anchor: Date): Date[] {
       &.has-apt {
         background: var(--color-primary-light);
       }
+      &.is-blocked {
+        background: var(--color-danger-bg);
+        border-color: rgba(239, 68, 68, 0.5);
+      }
     }
     .day-num {
       font-size: 0.9rem;
@@ -535,6 +577,43 @@ function buildWeekDays(anchor: Date): Date[] {
       }
     }
 
+    /* ===== BLOQUEOS ===== */
+    .block-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      padding: 0.5rem 0.6rem;
+      background: var(--color-danger-bg);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-left: 3px solid var(--color-danger);
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      strong {
+        color: var(--color-danger);
+        font-size: 0.7rem;
+      }
+      span {
+        color: var(--color-text);
+      }
+      &.wide strong {
+        color: var(--color-text);
+        font-size: 0.75rem;
+      }
+    }
+    .blocked-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      margin-bottom: 0.9rem;
+    }
+    .blocked-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--color-danger);
+    }
+
     /* ===== DÍA ===== */
     .day-card {
       padding: 1rem;
@@ -604,8 +683,10 @@ function buildWeekDays(anchor: Date): Date[] {
 })
 export class CalendarComponent implements OnInit {
   private readonly http = inject(HttpClient);
+  private readonly api = inject(ApiService);
 
   protected readonly appointments = signal<AppointmentAdminDto[]>([]);
+  protected readonly blocks = signal<BlockedSlotResponseDto[]>([]);
   protected readonly loading = signal(true);
   protected readonly showCreateModal = signal(false);
   protected readonly selectedAppointment = signal<AppointmentAdminDto | null>(null);
@@ -620,6 +701,8 @@ export class CalendarComponent implements OnInit {
   );
   protected readonly weekDays = computed(() => buildWeekDays(this.anchor()));
   protected readonly dayAppointments = computed(() => this.appointmentsOn(toDayKey(this.anchor())));
+  protected readonly dayBlocks = computed(() => this.blocksOn(toDayKey(this.anchor())));
+  protected readonly blockedDayMap = computed(() => buildBlockedDayMap(this.blocks()));
 
   protected readonly periodLabel = computed(() => {
     const a = this.anchor();
@@ -639,6 +722,7 @@ export class CalendarComponent implements OnInit {
 
   ngOnInit() {
     this.loadAppointments();
+    this.loadBlocks();
   }
 
   loadAppointments() {
@@ -656,8 +740,46 @@ export class CalendarComponent implements OnInit {
     });
   }
 
+  refresh() {
+    this.loadAppointments();
+    this.loadBlocks();
+  }
+
+  loadBlocks() {
+    const { from, to } = this.visibleRange();
+    this.api.getBlocks(from, to).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.blocks.set(res.data ?? []);
+        }
+      },
+      error: () => {
+        // Los bloqueos son informativos: no bloquear la vista del calendario.
+      },
+    });
+  }
+
+  private visibleRange(): { from: number; to: number } {
+    const a = this.anchor();
+    if (this.view() === 'month') {
+      const from = new Date(a.getFullYear(), a.getMonth(), 1);
+      const to = new Date(a.getFullYear(), a.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { from: from.getTime(), to: to.getTime() };
+    }
+    if (this.view() === 'week') {
+      const days = buildWeekDays(a);
+      const from = new Date(days[0].getFullYear(), days[0].getMonth(), days[0].getDate());
+      const to = new Date(days[6].getFullYear(), days[6].getMonth(), days[6].getDate(), 23, 59, 59, 999);
+      return { from: from.getTime(), to: to.getTime() };
+    }
+    const from = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    const to = new Date(a.getFullYear(), a.getMonth(), a.getDate(), 23, 59, 59, 999);
+    return { from: from.getTime(), to: to.getTime() };
+  }
+
   setView(v: CalendarView) {
     this.view.set(v);
+    this.loadBlocks();
   }
 
   prev() {
@@ -668,6 +790,7 @@ export class CalendarComponent implements OnInit {
     } else {
       this.anchor.update((a) => addDays(a, -1));
     }
+    this.loadBlocks();
   }
 
   next() {
@@ -678,15 +801,18 @@ export class CalendarComponent implements OnInit {
     } else {
       this.anchor.update((a) => addDays(a, 1));
     }
+    this.loadBlocks();
   }
 
   goToday() {
     this.anchor.set(new Date());
+    this.loadBlocks();
   }
 
   goDay(date: Date) {
     this.anchor.set(date);
     this.view.set('day');
+    this.loadBlocks();
   }
 
   isToday(d: Date): boolean {
@@ -709,6 +835,26 @@ export class CalendarComponent implements OnInit {
     return this.appointments()
       .filter((a) => toDayKey(new Date(a.startAt)) === key)
       .sort((a, b) => a.startAt - b.startAt);
+  }
+
+  blocksOn(key: string): BlockedSlotResponseDto[] {
+    return this.blocks().filter((b) => {
+      const startKey = toDayKey(new Date(b.startAt));
+      const endKey = toDayKey(new Date(b.endAt));
+      return key >= startKey && key <= endKey;
+    });
+  }
+
+  isBlocked(key: string): boolean {
+    return this.blockedDayMap().has(key);
+  }
+
+  blockedTooltip(key: string): string {
+    const reason = this.blockedDayMap().get(key);
+    if (!reason) {
+      return '';
+    }
+    return reason === 'Bloqueado' ? 'Bloqueado' : `Bloqueado: ${reason}`;
   }
 
   appointmentsAtHour(h: number): AppointmentAdminDto[] {
