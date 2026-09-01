@@ -317,6 +317,14 @@ publicRoutes.post(
       );
     }
 
+    // Validar que el horario seleccionado no esté en el pasado.
+    if (body.startAt <= Date.now()) {
+      return c.json(
+        { success: false, error: { code: 'PAST_DATE', message: 'La fecha seleccionada ya pasó' } },
+        400,
+      );
+    }
+
     // 1. Crear o buscar cliente
     let customer = await db.query.customers.findFirst({
       where: and(eq(customers.companyId, company.id), eq(customers.phone, body.customerPhone)),

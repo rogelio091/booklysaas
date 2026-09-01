@@ -46,6 +46,7 @@ function request(overrides: Partial<AvailabilityRequest> = {}): AvailabilityRequ
     blockedSlots: [],
     staff,
     staffId: 1,
+    now: 0,
     ...overrides,
   };
 }
@@ -282,6 +283,20 @@ describe('computeAvailability — timezones IANA', () => {
     const summerEntry: WorkingHoursEntry = { ...entry, dayOfWeek: 2 };
     const summer = generateCandidates(summerEntry, '2025-07-15', 'America/New_York', 30, 30);
     expect(summer[0].startAt).toBe(Date.UTC(2025, 6, 15, 13, 0));
+  });
+});
+
+describe('computeAvailability — filtrado de slots pasados', () => {
+  it('descarta los slots cuyo startAt es anterior o igual al instante de referencia', () => {
+    const result = computeAvailability(request({ now: gt(10, 0) }));
+    const starts = result.map((s) => s.startAt);
+
+    expect(starts).not.toContain(gt(9, 0));
+    expect(starts).not.toContain(gt(9, 30));
+    // Borde: startAt === now también se descarta.
+    expect(starts).not.toContain(gt(10, 0));
+    expect(starts).toContain(gt(10, 30));
+    expect(starts).toContain(gt(11, 0));
   });
 });
 

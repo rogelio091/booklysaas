@@ -97,6 +97,11 @@ export interface AvailabilityRequest {
    * Se usa en "cualquiera disponible" para restringir el staff al lugar consultado.
    */
   staffByLocation?: Map<number, number[]>;
+  /**
+   * Instante de referencia (epoch ms) para descartar slots pasados.
+   * Omitido, usa `Date.now()`. Útil para tests deterministas.
+   */
+  now?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +419,8 @@ export function computeAvailability(
     throw new Error('intervalMinutes debe ser un entero positivo');
   }
 
+  const now = request.now ?? Date.now();
+
   const { year, monthIndex, day } = parseDate(request.date);
   const dayOfWeek = getDayOfWeek(year, monthIndex, day);
 
@@ -489,6 +496,9 @@ export function computeAvailability(
   const result: AvailabilitySlot[] = [];
 
   for (const startAt of sortedStarts) {
+    // Descartar slots que ya empezaron (startAt en el pasado o justo ahora).
+    if (startAt <= now) continue;
+
     const slot: SlotCandidate = { startAt, endAt: startAt + durationMs };
 
     if (request.staffId != null) {
