@@ -280,6 +280,8 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
                           type="button"
                           class="slot-btn"
                           [class.active]="selectedSlot()?.startAt === slot.startAt"
+                          [class.is-past]="isSlotPast(slot)"
+                          [disabled]="isSlotPast(slot)"
                           (click)="selectSlot(slot)"
                         >
                           {{ slot.startAt | date:'shortTime' }}
@@ -347,6 +349,9 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
                       </div>
                     }
                   </form>
+                  @if (bookingError()) {
+                    <div class="booking-error">{{ bookingError() }}</div>
+                  }
                 </section>
               }
             }
@@ -670,12 +675,17 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
       font-weight: 700;
       cursor: pointer;
       transition: all 0.15s;
-      &:hover { border-color: var(--color-primary); color: var(--color-primary); }
+      &:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
       &.active {
         background: var(--color-primary);
         color: white;
         border-color: var(--color-primary);
         box-shadow: var(--shadow-glow);
+      }
+      &.is-past {
+        opacity: 0.35;
+        cursor: not-allowed;
+        border-color: transparent;
       }
     }
     .summary-box {
@@ -771,6 +781,15 @@ function buildClientCalendar(cursor: { year: number; month: number }, todayStr: 
       box-shadow: 0 0 25px var(--color-success-bg);
     }
     .code-highlight { color: var(--color-accent); }
+    .booking-error {
+      background: var(--color-danger-bg);
+      color: var(--color-danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem 0.8rem;
+      font-size: 0.8rem;
+      margin-top: 1rem;
+    }
     .empty-msg { text-align: center; padding: 2rem; color: var(--color-text-muted); font-size: 0.85rem; }
   `]
 })
@@ -802,6 +821,7 @@ export class BookingComponent implements OnInit {
   protected readonly loadingSlots = signal(false);
   protected readonly submitting = signal(false);
   protected readonly confirmedAppointment = signal<BookingConfirmation | null>(null);
+  protected readonly bookingError = signal<string | null>(null);
 
   protected readonly customerName = signal('');
   protected readonly customerPhone = signal('');
@@ -977,11 +997,17 @@ export class BookingComponent implements OnInit {
 
   selectDate(dateStr: string) {
     this.selectedDate.set(dateStr);
+    this.bookingError.set(null);
     this.fetchSlots();
   }
 
   selectSlot(slot: SlotDto) {
     this.selectedSlot.set(slot);
+    this.bookingError.set(null);
+  }
+
+  protected isSlotPast(slot: SlotDto): boolean {
+    return slot.startAt <= Date.now();
   }
 
   fetchSlots() {
@@ -1050,6 +1076,7 @@ export class BookingComponent implements OnInit {
     };
 
     this.submitting.set(true);
+    this.bookingError.set(null);
     this.api.createBooking(this.slug(), payload).subscribe({
       next: (res) => {
         this.submitting.set(false);
@@ -1058,8 +1085,15 @@ export class BookingComponent implements OnInit {
           this.currentIndex.set(this.stepOrder().length);
         }
       },
-      error: () => {
+      error: (err: unknown) => {
         this.submitting.set(false);
+        const code = (err as { error?: { error?: { code?: string } } })?.error?.error?.code;
+        if (code === 'PAST_DATE') {
+          this.bookingError.set('El horario seleccionado ya pasó. Por favor elige otro horario.');
+          this.fetchSlots();
+        } else {
+          this.bookingError.set('No se pudo confirmar la reserva. Inténtalo de nuevo.');
+        }
       }
     });
   }

@@ -15,6 +15,13 @@ import type {
 } from '@bookly/contracts';
 import { ApiService, WorkingHourDto } from '../../../../core/services/api.service';
 
+function toDateStrLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 interface DaySchedule {
   dayOfWeek: number;
   label: string;
@@ -196,7 +203,7 @@ function createEmptySchedule(): DaySchedule[] {
             <form [formGroup]="blockForm" (ngSubmit)="saveBlock()" class="block-form">
               <div class="form-group">
                 <label for="blockDate">Fecha *</label>
-                <input id="blockDate" type="date" formControlName="date" />
+                <input id="blockDate" type="date" formControlName="date" [min]="minBlockDate()" />
                 @if (showBlockError('date')) {
                   <span class="field-error">La fecha es requerida</span>
                 }
@@ -728,6 +735,7 @@ export class ScheduleComponent implements OnInit {
   protected readonly submitBlockError = signal<string | null>(null);
   protected readonly affectedWarning = signal<string | null>(null);
   protected readonly locations = signal<LocationResponseDto[]>([]);
+  protected readonly minBlockDate = signal(toDateStrLocal(new Date()));
 
   protected readonly selectableLocations = computed(() =>
     this.locations().filter((l) => l.isActive),
@@ -878,6 +886,7 @@ export class ScheduleComponent implements OnInit {
   protected openBlockModal(): void {
     this.submitBlockError.set(null);
     this.affectedWarning.set(null);
+    this.minBlockDate.set(toDateStrLocal(new Date()));
     this.blockForm.reset({ date: '', startTime: '', endTime: '', locationId: null, reason: '' });
     this.showBlockModal.set(true);
   }

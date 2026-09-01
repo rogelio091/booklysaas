@@ -10,7 +10,14 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormControl, FormGroup, Validators } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormControl,
+  FormGroup,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime, distinctUntilChanged, switchMap, finalize, EMPTY } from 'rxjs';
 import type {
@@ -20,6 +27,26 @@ import type {
   StaffResponseDto,
 } from '@bookly/contracts';
 import { ApiService } from '../../../../core/services/api.service';
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function toLocalMinDateTime(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function notPastValidator(control: AbstractControl): ValidationErrors | null {
+  const value = control.value as string;
+  if (!value) {
+    return null;
+  }
+  const ts = new Date(value).getTime();
+  if (!Number.isFinite(ts)) {
+    return null;
+  }
+  return ts <= Date.now() ? { pastDate: true } : null;
+}
 
 @Component({
   selector: 'app-appointment-create',
@@ -134,9 +161,9 @@ import { ApiService } from '../../../../core/services/api.service';
 
               <div class="form-group">
                 <label for="startAt">Fecha y hora *</label>
-                <input id="startAt" type="datetime-local" formControlName="startAt" />
+                <input id="startAt" type="datetime-local" formControlName="startAt" [min]="minStartAt()" />
                 @if (showError('startAt')) {
-                  <span class="field-error">Campo requerido</span>
+                  <span class="field-error">{{ startAtError() }}</span>
                 }
               </div>
 
@@ -244,6 +271,7 @@ import { ApiService } from '../../../../core/services/api.service';
           font-family: inherit;
           font-size: 0.875rem;
           outline: none;
+          color-scheme: dark;
           &:focus {
             border-color: var(--color-primary);
             box-shadow: 0 0 0 3px var(--color-primary-glow);
@@ -417,6 +445,7 @@ export class AppointmentCreateComponent implements OnInit {
   protected readonly customerSuggestions = signal<CustomerResponseDto[]>([]);
   protected readonly showSuggestions = signal(false);
   protected readonly searchingCustomers = signal(false);
+  protected readonly minStartAt = signal(toLocalMinDateTime(new Date()));
 
   protected readonly form = new FormGroup({
     customerSearch: new FormControl('', { nonNullable: true }),
@@ -438,7 +467,7 @@ export class AppointmentCreateComponent implements OnInit {
     staffId: new FormControl<number | null>(null),
     startAt: new FormControl('', {
       nonNullable: true,
-      validators: Validators.required,
+      validators: [Validators.required, notPastValidator],
     }),
     notes: new FormControl('', { nonNullable: true }),
   });
@@ -575,11 +604,23 @@ export class AppointmentCreateComponent implements OnInit {
     return !!control && control.invalid && control.touched;
   }
 
+  protected startAtError(): string {
+    const control = this.form.controls.startAt;
+    if (control.hasError('required')) {
+      return 'Campo requerido';
+    }
+    if (control.hasError('pastDate')) {
+      return 'La fecha debe ser futura';
+    }
+    return '';
+  }
+
   private reset() {
     this.submitError.set(null);
     this.customerSuggestions.set([]);
     this.showSuggestions.set(false);
     this.searchingCustomers.set(false);
+    this.minStartAt.set(toLocalMinDateTime(new Date()));
     this.form.reset();
   }
 }
