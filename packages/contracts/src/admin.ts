@@ -142,13 +142,31 @@ export type SetWorkingHoursDto = z.infer<typeof setWorkingHoursSchema>;
 // ---------------------------------------------------------------------------
 // Bloqueos de Horario (Blocked Slots)
 // ---------------------------------------------------------------------------
-export const createBlockedSlotSchema = z.object({
-  userId: z.number().int().nullable().optional(), // null = toda la empresa
-  startAt: z.number().int().positive(), // epoch ms UTC
-  endAt: z.number().int().positive(),
-  reason: z.string().optional().nullable(),
-});
+export const createBlockedSlotSchema = z
+  .object({
+    userId: z.number().int().nullable().optional(), // null = toda la empresa
+    locationId: z.number().int().positive().nullable().optional(), // null = toda la empresa
+    startAt: z.number().int().positive(), // epoch ms UTC
+    endAt: z.number().int().positive(),
+    reason: z.string().optional().nullable(),
+  })
+  .refine((d) => d.endAt > d.startAt, {
+    message: 'endAt debe ser mayor que startAt',
+    path: ['endAt'],
+  });
 export type CreateBlockedSlotDto = z.infer<typeof createBlockedSlotSchema>;
+
+export const blockedSlotResponseSchema = z.object({
+  id: z.number(),
+  companyId: z.number(),
+  userId: z.number().nullable(),
+  locationId: z.number().nullable(),
+  startAt: z.number(), // epoch ms UTC
+  endAt: z.number(), // epoch ms UTC
+  reason: z.string().nullable(),
+  createdAt: z.number(), // epoch ms UTC
+});
+export type BlockedSlotResponseDto = z.infer<typeof blockedSlotResponseSchema>;
 
 // ---------------------------------------------------------------------------
 // Clientes (Admin)

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { SignJWT } from "jose";
-import { eq, and, desc, inArray, like, or } from "drizzle-orm";
+import { eq, and, desc, inArray, like, or, lt, gt, gte, lte } from "drizzle-orm";
 import {
   loginRequestSchema,
   createServiceSchema,
@@ -391,8 +391,22 @@ protectedAdmin.get("/schedule/blocks", async (c) => {
   const companyId = c.get("companyId")!;
   const db = c.get("db");
 
+  // Filtro opcional por rango de fechas (epoch ms). "from" = bloques que
+  // terminan en/después; "to" = bloques que inician en/antes.
+  const fromRaw = c.req.query("from");
+  const toRaw = c.req.query("to");
+  const from = fromRaw !== undefined ? Number(fromRaw) : NaN;
+  const to = toRaw !== undefined ? Number(toRaw) : NaN;
+
   const blocks = await db.query.blockedSlots.findMany({
-    where: withTenant(blockedSlots, companyId),
+    where: withTenant(
+      blockedSlots,
+      companyId,
+      and(
+        Number.isFinite(from) ? gte(blockedSlots.endAt, new Date(from)) : undefined,
+        Number.isFinite(to) ? lte(blockedSlots.startAt, new Date(to)) : undefined,
+      ),
+    ),
     orderBy: [desc(blockedSlots.startAt)],
   });
 
@@ -402,9 +416,11 @@ protectedAdmin.get("/schedule/blocks", async (c) => {
       id: b.id,
       companyId: b.companyId,
       userId: b.userId,
+      locationId: b.locationId,
       startAt: b.startAt.getTime(),
       endAt: b.endAt.getTime(),
       reason: b.reason,
+      createdAt: b.createdAt.getTime(),
     })),
   });
 });
@@ -422,11 +438,27 @@ protectedAdmin.post(
       .values({
         companyId,
         userId: body.userId ?? null,
+        locationId: body.locationId ?? null,
         startAt: new Date(body.startAt),
         endAt: new Date(body.endAt),
         reason: body.reason ?? null,
       })
       .returning();
+
+    // Citas confirmadas que se superponen con el rango bloqueado
+    // (mismo tenant; misma locationId cuando el bloqueo es por ubicación).
+    const affectedAppointments = await db.$count(
+      appointments,
+      and(
+        eq(appointments.companyId, companyId),
+        eq(appointments.status, "confirmed"),
+        lt(appointments.startAt, block.endAt),
+        gt(appointments.endAt, block.startAt),
+        block.locationId !== null
+          ? eq(appointments.locationId, block.locationId)
+          : undefined,
+      ),
+    );
 
     return c.json(
       {
@@ -435,9 +467,14 @@ protectedAdmin.post(
           id: block.id,
           companyId: block.companyId,
           userId: block.userId,
+          locationId: block.locationId,
           startAt: block.startAt.getTime(),
           endAt: block.endAt.getTime(),
           reason: block.reason,
+          createdAt: block.createdAt.getTime(),
+        },
+        warnings: {
+          affectedAppointments,
         },
       },
       201,
