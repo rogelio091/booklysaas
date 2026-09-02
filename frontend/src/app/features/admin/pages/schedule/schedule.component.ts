@@ -8,6 +8,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormGroup, FormControl, Validators } from '@angular/forms';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatNativeDateModule } from '@angular/material/core';
 import type {
   BlockedSlotResponseDto,
   CreateBlockedSlotDto,
@@ -20,6 +25,12 @@ function toDateStrLocal(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 interface DaySchedule {
@@ -61,7 +72,15 @@ function createEmptySchedule(): DaySchedule[] {
   selector: 'app-schedule-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatDatepickerModule,
+    MatTimepickerModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatNativeDateModule,
+  ],
   template: `
     <div class="page-shell">
       <header class="header-flex">
@@ -150,38 +169,50 @@ function createEmptySchedule(): DaySchedule[] {
 
               @if (day.isActive) {
                 <div class="time-grid">
-                  <div class="field">
-                    <label>Inicio</label>
+                  <mat-form-field appearance="fill" class="time-field">
+                    <mat-label>Inicio</mat-label>
                     <input
-                      type="time"
-                      [value]="day.startTime"
-                      (change)="updateTime(day.dayOfWeek, 'startTime', $any($event.target).value)"
+                      matInput
+                      [matTimepicker]="startTp"
+                      [value]="toTimeValue(day.startTime)"
+                      (valueChange)="updateTime(day.dayOfWeek, 'startTime', fromTimeValue($event))"
                     />
-                  </div>
-                  <div class="field">
-                    <label>Fin</label>
+                    <mat-timepicker-toggle matIconSuffix [for]="startTp"></mat-timepicker-toggle>
+                    <mat-timepicker #startTp></mat-timepicker>
+                  </mat-form-field>
+                  <mat-form-field appearance="fill" class="time-field">
+                    <mat-label>Fin</mat-label>
                     <input
-                      type="time"
-                      [value]="day.endTime"
-                      (change)="updateTime(day.dayOfWeek, 'endTime', $any($event.target).value)"
+                      matInput
+                      [matTimepicker]="endTp"
+                      [value]="toTimeValue(day.endTime)"
+                      (valueChange)="updateTime(day.dayOfWeek, 'endTime', fromTimeValue($event))"
                     />
-                  </div>
-                  <div class="field">
-                    <label>Break inicio</label>
+                    <mat-timepicker-toggle matIconSuffix [for]="endTp"></mat-timepicker-toggle>
+                    <mat-timepicker #endTp></mat-timepicker>
+                  </mat-form-field>
+                  <mat-form-field appearance="fill" class="time-field">
+                    <mat-label>Break inicio</mat-label>
                     <input
-                      type="time"
-                      [value]="day.breakStartTime"
-                      (change)="updateTime(day.dayOfWeek, 'breakStartTime', $any($event.target).value)"
+                      matInput
+                      [matTimepicker]="breakStartTp"
+                      [value]="toTimeValue(day.breakStartTime)"
+                      (valueChange)="updateTime(day.dayOfWeek, 'breakStartTime', fromTimeValue($event))"
                     />
-                  </div>
-                  <div class="field">
-                    <label>Break fin</label>
+                    <mat-timepicker-toggle matIconSuffix [for]="breakStartTp"></mat-timepicker-toggle>
+                    <mat-timepicker #breakStartTp></mat-timepicker>
+                  </mat-form-field>
+                  <mat-form-field appearance="fill" class="time-field">
+                    <mat-label>Break fin</mat-label>
                     <input
-                      type="time"
-                      [value]="day.breakEndTime"
-                      (change)="updateTime(day.dayOfWeek, 'breakEndTime', $any($event.target).value)"
+                      matInput
+                      [matTimepicker]="breakEndTp"
+                      [value]="toTimeValue(day.breakEndTime)"
+                      (valueChange)="updateTime(day.dayOfWeek, 'breakEndTime', fromTimeValue($event))"
                     />
-                  </div>
+                    <mat-timepicker-toggle matIconSuffix [for]="breakEndTp"></mat-timepicker-toggle>
+                    <mat-timepicker #breakEndTp></mat-timepicker>
+                  </mat-form-field>
                 </div>
               } @else {
                 <div class="unavailable">No disponible</div>
@@ -202,8 +233,17 @@ function createEmptySchedule(): DaySchedule[] {
 
             <form [formGroup]="blockForm" (ngSubmit)="saveBlock()" class="block-form">
               <div class="form-group">
-                <label for="blockDate">Fecha *</label>
-                <input id="blockDate" type="date" formControlName="date" [min]="minBlockDate()" />
+                <mat-form-field appearance="fill" class="block-field">
+                  <mat-label>Fecha *</mat-label>
+                  <input
+                    matInput
+                    [matDatepicker]="blockDatePicker"
+                    formControlName="date"
+                    [min]="minBlockDate()"
+                  />
+                  <mat-datepicker-toggle matIconSuffix [for]="blockDatePicker"></mat-datepicker-toggle>
+                  <mat-datepicker #blockDatePicker></mat-datepicker>
+                </mat-form-field>
                 @if (showBlockError('date')) {
                   <span class="field-error">La fecha es requerida</span>
                 }
@@ -211,15 +251,23 @@ function createEmptySchedule(): DaySchedule[] {
 
               <div class="form-row">
                 <div class="form-group">
-                  <label for="blockStart">Hora inicio *</label>
-                  <input id="blockStart" type="time" formControlName="startTime" />
+                  <mat-form-field appearance="fill" class="block-field">
+                    <mat-label>Hora inicio *</mat-label>
+                    <input matInput [matTimepicker]="blockStartPicker" formControlName="startTime" />
+                    <mat-timepicker-toggle matIconSuffix [for]="blockStartPicker"></mat-timepicker-toggle>
+                    <mat-timepicker #blockStartPicker></mat-timepicker>
+                  </mat-form-field>
                   @if (showBlockError('startTime')) {
                     <span class="field-error">Requerida</span>
                   }
                 </div>
                 <div class="form-group">
-                  <label for="blockEnd">Hora fin *</label>
-                  <input id="blockEnd" type="time" formControlName="endTime" />
+                  <mat-form-field appearance="fill" class="block-field">
+                    <mat-label>Hora fin *</mat-label>
+                    <input matInput [matTimepicker]="blockEndPicker" formControlName="endTime" />
+                    <mat-timepicker-toggle matIconSuffix [for]="blockEndPicker"></mat-timepicker-toggle>
+                    <mat-timepicker #blockEndPicker></mat-timepicker>
+                  </mat-form-field>
                   @if (showBlockError('endTime')) {
                     <span class="field-error">Requerida</span>
                   }
@@ -507,32 +555,8 @@ function createEmptySchedule(): DaySchedule[] {
         gap: 0.75rem;
       }
 
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.35rem;
-        label {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--color-text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.02em;
-        }
-        input {
-          padding: 0.6rem 0.75rem;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1.5px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          color: white;
-          font-family: inherit;
-          font-size: 0.875rem;
-          outline: none;
-          color-scheme: dark;
-          &:focus {
-            border-color: var(--color-primary);
-            box-shadow: 0 0 0 3px var(--color-primary-glow);
-          }
-        }
+      .time-field {
+        width: 100%;
       }
 
       .unavailable {
@@ -610,7 +634,7 @@ function createEmptySchedule(): DaySchedule[] {
           font-weight: 600;
           color: var(--color-text-muted);
         }
-        input,
+        input:not([matInput]),
         select {
           padding: 0.75rem 0.9rem;
           background: rgba(0, 0, 0, 0.3);
@@ -636,6 +660,9 @@ function createEmptySchedule(): DaySchedule[] {
             background: #f8fafc;
           }
         }
+      }
+      .block-field {
+        width: 100%;
       }
       .form-row {
         display: grid;
@@ -735,16 +762,16 @@ export class ScheduleComponent implements OnInit {
   protected readonly submitBlockError = signal<string | null>(null);
   protected readonly affectedWarning = signal<string | null>(null);
   protected readonly locations = signal<LocationResponseDto[]>([]);
-  protected readonly minBlockDate = signal(toDateStrLocal(new Date()));
+  protected readonly minBlockDate = signal(startOfDay(new Date()));
 
   protected readonly selectableLocations = computed(() =>
     this.locations().filter((l) => l.isActive),
   );
 
   protected readonly blockForm = new FormGroup({
-    date: new FormControl('', { nonNullable: true, validators: Validators.required }),
-    startTime: new FormControl('', { nonNullable: true, validators: Validators.required }),
-    endTime: new FormControl('', { nonNullable: true, validators: Validators.required }),
+    date: new FormControl<Date | null>(null, { validators: Validators.required }),
+    startTime: new FormControl<Date | null>(null, { validators: Validators.required }),
+    endTime: new FormControl<Date | null>(null, { validators: Validators.required }),
     locationId: new FormControl<number | null>(null),
     reason: new FormControl('', { nonNullable: true }),
   });
@@ -759,8 +786,12 @@ export class ScheduleComponent implements OnInit {
 
   ngOnInit(): void {
     // Mantiene blockStart/blockEnd sincronizados con el formulario (reactividad OnPush).
-    this.blockForm.controls.startTime.valueChanges.subscribe((v) => this.blockStart.set(v));
-    this.blockForm.controls.endTime.valueChanges.subscribe((v) => this.blockEnd.set(v));
+    this.blockForm.controls.startTime.valueChanges.subscribe((v) =>
+      this.blockStart.set(this.fromTimeValue(v)),
+    );
+    this.blockForm.controls.endTime.valueChanges.subscribe((v) =>
+      this.blockEnd.set(this.fromTimeValue(v)),
+    );
     this.loadSchedule();
     this.loadBlocks();
     this.loadLocations();
@@ -819,6 +850,28 @@ export class ScheduleComponent implements OnInit {
     this.schedule.update((prev) =>
       prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, [field]: value } : d)),
     );
+  }
+
+  protected toTimeValue(value: string): Date | null {
+    if (!value) {
+      return null;
+    }
+    const [h, m] = value.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) {
+      return null;
+    }
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  protected fromTimeValue(value: Date | null): string {
+    if (!value) {
+      return '';
+    }
+    const hh = String(value.getHours()).padStart(2, '0');
+    const mm = String(value.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
   }
 
   protected saveSchedule(): void {
@@ -886,8 +939,8 @@ export class ScheduleComponent implements OnInit {
   protected openBlockModal(): void {
     this.submitBlockError.set(null);
     this.affectedWarning.set(null);
-    this.minBlockDate.set(toDateStrLocal(new Date()));
-    this.blockForm.reset({ date: '', startTime: '', endTime: '', locationId: null, reason: '' });
+    this.minBlockDate.set(startOfDay(new Date()));
+    this.blockForm.reset({ date: null, startTime: null, endTime: null, locationId: null, reason: '' });
     this.showBlockModal.set(true);
   }
 
@@ -977,8 +1030,11 @@ export class ScheduleComponent implements OnInit {
     if (!raw.date || !raw.startTime || !raw.endTime) {
       return null;
     }
-    const startAt = new Date(`${raw.date}T${raw.startTime}`).getTime();
-    const endAt = new Date(`${raw.date}T${raw.endTime}`).getTime();
+    const dateStr = toDateStrLocal(raw.date);
+    const startStr = this.fromTimeValue(raw.startTime);
+    const endStr = this.fromTimeValue(raw.endTime);
+    const startAt = new Date(`${dateStr}T${startStr}`).getTime();
+    const endAt = new Date(`${dateStr}T${endStr}`).getTime();
     if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt <= startAt) {
       return null;
     }

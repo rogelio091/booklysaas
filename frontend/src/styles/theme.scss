@@ -132,3 +132,35 @@ body {
 .mat-datepicker-content .mat-mdc-icon-button:hover {
   color: var(--color-primary) !important;
 }
+
+/* Timepicker oscuro */
+.mat-timepicker-panel {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  color: var(--color-text) !important;
+}
+
+.mat-timepicker-panel .mat-timepicker-option {
+  color: var(--color-text) !important;
+}
+
+.mat-timepicker-panel .mat-timepicker-option:hover,
+.mat-timepicker-panel .mat-timepicker-option.mat-timepicker-selected {
+  background: var(--color-primary-light) !important;
+  color: var(--color-primary) !important;
+}
+
+.mat-timepicker-panel .mat-timepicker-option.mat-timepicker-active {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+}
+
+.mat-timepicker-toggle .mat-mdc-icon-button {
+  color: var(--color-text-muted) !important;
+}
+
+.mat-timepicker-toggle .mat-mdc-icon-button:hover {
+  color: var(--color-primary) !important;
+}

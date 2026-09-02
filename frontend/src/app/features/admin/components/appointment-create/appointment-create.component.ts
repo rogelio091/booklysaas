@@ -19,7 +19,12 @@ import {
   ValidationErrors,
 } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, switchMap, finalize, EMPTY } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, finalize, merge, EMPTY } from 'rxjs';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatNativeDateModule } from '@angular/material/core';
 import type {
   CreateAdminAppointmentDto,
   CustomerResponseDto,
@@ -34,6 +39,12 @@ function pad2(n: number): string {
 
 function toLocalMinDateTime(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 function notPastValidator(control: AbstractControl): ValidationErrors | null {
@@ -51,7 +62,15 @@ function notPastValidator(control: AbstractControl): ValidationErrors | null {
 @Component({
   selector: 'app-appointment-create',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatDatepickerModule,
+    MatTimepickerModule,
+    MatInputModule,
+    MatFormFieldModule,
+    MatNativeDateModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (open) {
@@ -160,9 +179,31 @@ function notPastValidator(control: AbstractControl): ValidationErrors | null {
               </div>
 
               <div class="form-group">
-                <label for="startAt">Fecha y hora *</label>
-                <input id="startAt" type="datetime-local" formControlName="startAt" [min]="minStartAt()" />
-                @if (showError('startAt')) {
+                <label>Fecha y hora *</label>
+                <div class="datetime-row">
+                  <mat-form-field appearance="fill" class="datetime-field">
+                    <mat-label>Fecha</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="startDatePicker"
+                      formControlName="startDate"
+                      [min]="minStartAt()"
+                    />
+                    <mat-datepicker-toggle matIconSuffix [for]="startDatePicker"></mat-datepicker-toggle>
+                    <mat-datepicker #startDatePicker></mat-datepicker>
+                  </mat-form-field>
+                  <mat-form-field appearance="fill" class="datetime-field">
+                    <mat-label>Hora</mat-label>
+                    <input
+                      matInput
+                      [matTimepicker]="startTimePicker"
+                      formControlName="startTime"
+                    />
+                    <mat-timepicker-toggle matIconSuffix [for]="startTimePicker"></mat-timepicker-toggle>
+                    <mat-timepicker #startTimePicker></mat-timepicker>
+                  </mat-form-field>
+                </div>
+                @if (showStartAtError()) {
                   <span class="field-error">{{ startAtError() }}</span>
                 }
               </div>
@@ -260,7 +301,7 @@ function notPastValidator(control: AbstractControl): ValidationErrors | null {
           font-weight: 600;
           color: var(--color-text-muted);
         }
-        input,
+        input:not([matInput]),
         select,
         textarea {
           padding: 0.75rem 0.9rem;
@@ -351,6 +392,14 @@ function notPastValidator(control: AbstractControl): ValidationErrors | null {
         grid-template-columns: 1fr 1fr;
         gap: 1rem;
       }
+      .datetime-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .datetime-field {
+        width: 100%;
+      }
       .field-error {
         font-size: 0.72rem;
         color: var(--color-danger);
@@ -422,6 +471,9 @@ function notPastValidator(control: AbstractControl): ValidationErrors | null {
         .form-row {
           grid-template-columns: 1fr;
         }
+        .datetime-row {
+          grid-template-columns: 1fr;
+        }
         .modal-actions {
           flex-direction: column-reverse;
         }
@@ -445,7 +497,7 @@ export class AppointmentCreateComponent implements OnInit {
   protected readonly customerSuggestions = signal<CustomerResponseDto[]>([]);
   protected readonly showSuggestions = signal(false);
   protected readonly searchingCustomers = signal(false);
-  protected readonly minStartAt = signal(toLocalMinDateTime(new Date()));
+  protected readonly minStartAt = signal(startOfDay(new Date()));
 
   protected readonly form = new FormGroup({
     customerSearch: new FormControl('', { nonNullable: true }),
@@ -465,6 +517,12 @@ export class AppointmentCreateComponent implements OnInit {
       validators: Validators.required,
     }),
     staffId: new FormControl<number | null>(null),
+    startDate: new FormControl<Date | null>(null, {
+      validators: Validators.required,
+    }),
+    startTime: new FormControl<Date | null>(null, {
+      validators: Validators.required,
+    }),
     startAt: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, notPastValidator],
@@ -489,6 +547,13 @@ export class AppointmentCreateComponent implements OnInit {
 
   ngOnInit() {
     this.loadOptions();
+
+    merge(
+      this.form.controls.startDate.valueChanges,
+      this.form.controls.startTime.valueChanges,
+    )
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncStartAt());
 
     this.form.controls.customerSearch.valueChanges
       .pipe(
@@ -604,6 +669,26 @@ export class AppointmentCreateComponent implements OnInit {
     return !!control && control.invalid && control.touched;
   }
 
+  protected showStartAtError(): boolean {
+    const startAt = this.form.controls.startAt;
+    if (!startAt.invalid) {
+      return false;
+    }
+    return this.form.controls.startDate.touched || this.form.controls.startTime.touched;
+  }
+
+  private syncStartAt(): void {
+    const date = this.form.controls.startDate.value;
+    const time = this.form.controls.startTime.value;
+    if (date && time) {
+      const composed = new Date(date);
+      composed.setHours(time.getHours(), time.getMinutes(), 0, 0);
+      this.form.controls.startAt.setValue(toLocalMinDateTime(composed), { emitEvent: false });
+    } else {
+      this.form.controls.startAt.setValue('', { emitEvent: false });
+    }
+  }
+
   protected startAtError(): string {
     const control = this.form.controls.startAt;
     if (control.hasError('required')) {
@@ -620,7 +705,7 @@ export class AppointmentCreateComponent implements OnInit {
     this.customerSuggestions.set([]);
     this.showSuggestions.set(false);
     this.searchingCustomers.set(false);
-    this.minStartAt.set(toLocalMinDateTime(new Date()));
+    this.minStartAt.set(startOfDay(new Date()));
     this.form.reset();
   }
 }
