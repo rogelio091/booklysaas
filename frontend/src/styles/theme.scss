@@ -37,3 +37,98 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
+
+
+/* ===== ANGULAR MATERIAL DARK THEME (Midnight Emerald) =====
+   Patrón AgentMemories §7.6 (BarberApp), adaptado a tokens Bookly.
+   Centralizado aquí (global), no por componente. */
+.mat-datepicker-content {
+  background: var(--color-surface-glass) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-card) !important;
+  overflow: hidden !important;
+
+  .mat-calendar {
+    background: linear-gradient(180deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0) 22%), var(--color-surface) !important;
+    color: var(--color-text) !important;
+  }
+
+  .mat-calendar-header {
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  .mat-calendar-period-button {
+    font-weight: 700 !important;
+    color: var(--color-text) !important;
+    letter-spacing: 0.04em;
+  }
+
+  .mat-calendar-arrow {
+    fill: var(--color-primary) !important;
+  }
+
+  .mat-calendar-table-header,
+  .mat-calendar-body-label {
+    color: var(--color-text-muted) !important;
+  }
+
+  .mat-calendar-body-cell-content {
+    color: var(--color-text) !important;
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .mat-calendar-body-cell:not(.mat-calendar-body-disabled):hover
+    > .mat-calendar-body-cell-content:not(.mat-calendar-body-selected) {
+    background: var(--color-primary-light) !important;
+    color: var(--color-text) !important;
+  }
+
+  .mat-calendar-body-selected {
+    background: var(--color-primary) !important;
+    color: #fff !important;
+    box-shadow: var(--shadow-glow) !important;
+  }
+
+  .mat-calendar-body-today:not(.mat-calendar-body-selected) {
+    border-color: var(--color-primary) !important;
+  }
+
+  .mat-calendar-body-disabled > .mat-calendar-body-cell-content {
+    color: var(--color-text-dim) !important;
+    opacity: 0.45;
+  }
+}
+
+/* Form field + timepicker oscuro */
+.mat-mdc-form-field {
+  color: var(--color-text) !important;
+}
+
+.mat-mdc-form-field-focus-overlay {
+  background: transparent !important;
+}
+
+.mat-datepicker-toggle .mat-mdc-icon-button,
+.mat-mdc-form-field-hint-wrapper,
+.mat-mdc-form-field-error-wrapper {
+  color: var(--color-text-muted) !important;
+}
+
+.mat-mdc-text-field-wrapper {
+  background: var(--color-surface-glass) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.mat-mdc-form-field-label {
+  color: var(--color-text-muted) !important;
+}
+
+.mat-datepicker-content .mat-mdc-icon-button {
+  color: var(--color-text-muted) !important;
+}
+
+.mat-datepicker-content .mat-mdc-icon-button:hover {
+  color: var(--color-primary) !important;
+}
